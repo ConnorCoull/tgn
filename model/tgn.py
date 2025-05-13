@@ -217,6 +217,28 @@ class TGN(torch.nn.Module):
     neg_score = score[n_samples:]
 
     return pos_score.sigmoid(), neg_score.sigmoid()
+  
+
+  """
+  Coull, 2025
+  Using TGNs to detect malious flows of data in an ICS network.
+  Takes in the node and a message and predicts if the message is 0, benign, or 1, malicious.
+  """
+  def compute_edge_probabilities_malicious(self, source_node, destination_node, edge_times,
+                                  edge_idxs, n_neighbors=20):
+    """
+    Computes probabilities of edges between sources and destination on whether or not they are malicious.
+
+    Nodes represented networked devices in an ICS network.
+    Edges represent messages sent between devices.
+
+    An edge can be either 0 (benign), or 1 (malicious).
+    This means that the output of the model can represent the probability of the edge being malicious.
+
+
+
+    """
+    pass
 
   def update_memory(self, nodes, messages):
     # Aggregate messages for the same nodes

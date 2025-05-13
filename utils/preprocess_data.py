@@ -11,7 +11,7 @@ def preprocess(data_name):
   idx_list = []
 
   with open(data_name) as f:
-    s = next(f)
+    s = next(f) # skip header
     for idx, line in enumerate(f):
       e = line.strip().split(',')
       u = int(e[0])
