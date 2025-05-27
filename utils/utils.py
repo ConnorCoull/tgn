@@ -17,6 +17,33 @@ class MergeLayer(torch.nn.Module):
     h = self.act(self.fc1(x))
     return self.fc2(h)
 
+"""
+This class takes in 2 node embeddings and edge features and 
+calculates a score between 0 and 1 for how likely the edge is to be malicious.
+""" 
+class MaliciousClassifier(torch.nn.Module):
+    def __init__(self, total_dim, hidden_dim=128, dropout=0.1):
+        super().__init__()
+        #total_dim = src_dim + dst_dim + edge_feat_dim
+        
+        # Two-layer MLP with dropout
+        # Two layers bc I feel there is a lot of features here
+        self.fc1 = torch.nn.Linear(total_dim, hidden_dim)
+        self.fc2 = torch.nn.Linear(hidden_dim, 1)
+        self.dropout = torch.nn.Dropout(p=dropout)
+        self.act = torch.nn.ReLU()
+        
+        # Initialize weights - copied from MergeLayer
+        torch.nn.init.xavier_normal_(self.fc1.weight)
+        torch.nn.init.xavier_normal_(self.fc2.weight)
+    
+    def forward(self, src_emb, dst_emb, edge_feat):
+        x = torch.cat([src_emb, dst_emb, edge_feat], dim=1)
+        
+        h = self.act(self.fc1(x))
+        h = self.dropout(h)
+        return self.fc2(h).squeeze(dim=1)
+
 
 class MLP(torch.nn.Module):
   def __init__(self, dim, drop=0.3):
