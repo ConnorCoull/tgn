@@ -211,3 +211,26 @@ class NeighborFinder:
           edge_idxs[i, n_neighbors - len(source_edge_idxs):] = source_edge_idxs
 
     return neighbors, edge_idxs, edge_times
+  
+class Autoencoder(torch.nn.Module):
+  def __init__(self, input_dim, hidden_dim=128, dropout=0.1):
+    super(Autoencoder, self).__init__()
+    self.encoder = torch.nn.Sequential(
+      torch.nn.Linear(input_dim, hidden_dim),
+      torch.nn.ReLU(),
+      torch.nn.Dropout(p=dropout),
+      torch.nn.Linear(hidden_dim, hidden_dim // 2),
+      torch.nn.ReLU(),
+      torch.nn.Dropout(p=dropout)
+    )
+    self.decoder = torch.nn.Sequential(
+      torch.nn.Linear(hidden_dim // 2, hidden_dim),
+      torch.nn.ReLU(),
+      torch.nn.Dropout(p=dropout),
+      torch.nn.Linear(hidden_dim, input_dim)
+    )
+
+  def forward(self, x):
+    encoded = self.encoder(x)
+    decoded = self.decoder(encoded)
+    return decoded
