@@ -5,7 +5,7 @@ import sys
 import argparse
 import torch
 import numpy as np
-import pickle
+import pickle # for saving results
 from pathlib import Path
 
 from evaluation.evaluation import eval_edge_prediction

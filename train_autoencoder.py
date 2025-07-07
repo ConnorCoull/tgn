@@ -12,11 +12,11 @@ from model.tgn import TGN
 from utils.utils import EarlyStopMonitor, get_neighbor_finder, Autoencoder
 from utils.data_processing import get_data, compute_time_statistics
 
+# For consistency, same as other training files
 torch.manual_seed(0)
 np.random.seed(0)
 
-
-### Parser stuff
+### Parser stuff kept mostly same as training files bc I'm not removing any functionality, added hidden dim flag
 parser = argparse.ArgumentParser('TGN autoencoder training')
 parser.add_argument('-d', '--data', type=str, help='Dataset name (eg. wikipedia or reddit)',
                     default='wikipedia')
@@ -42,7 +42,7 @@ parser.add_argument('--message_function', type=str, default="identity", choices=
     "mlp", "identity"], help='Type of message function')
 parser.add_argument('--memory_updater', type=str, default="gru", choices=[
     "gru", "rnn"], help='Type of memory updater')
-parser.add_argument('--aggregator', type=str, default="last", help='Type of message aggregator')
+parser.add_argument('--aggregator', type=str, default="attention", choices=["last", "mean", "attention"], help='Type of message aggregator')
 parser.add_argument('--memory_update_at_end', action='store_true',
                     help='Whether to update memory at the end or at the start of the batch')
 parser.add_argument('--message_dim', type=int, default=100, help='Dimensions of the messages')
@@ -81,13 +81,14 @@ TIME_DIM = args.time_dim
 USE_MEMORY = args.use_memory
 MESSAGE_DIM = args.message_dim
 MEMORY_DIM = args.memory_dim
+HIDDEN_DIM = args.hidden_dim
 
 Path("./saved_models/").mkdir(parents=True, exist_ok=True)
 Path("./saved_checkpoints/").mkdir(parents=True, exist_ok=True)
 MODEL_SAVE_PATH = f'./saved_models/{args.prefix}-{args.data}-autoencoder.pth'
 get_checkpoint_path = lambda epoch: f'./saved_checkpoints/{args.prefix}-{args.data}-autoencoder-{epoch}.pth'
 
-### set up logger
+### set up logger (same as other training files)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
@@ -108,6 +109,8 @@ node_features, edge_features, full_data, train_data, val_data, test_data, new_no
 new_node_test_data = get_data(DATA,
                               different_new_nodes_between_val_and_test=args.different_new_nodes, 
                               randomize_features=args.randomize_features)
+# this is copied from other training files, relies on default so I don't think I need to change anything
+# Why would I need to randomise node features though?
 
 # Initialize training neighbor finder to retrieve temporal graph
 train_ngh_finder = get_neighbor_finder(train_data, args.uniform)
@@ -146,6 +149,7 @@ for i in range(args.n_runs):
               use_destination_embedding_in_message=args.use_destination_embedding_in_message,
               use_source_embedding_in_message=args.use_source_embedding_in_message,
               dyrep=args.dyrep)
+    # No criterion or optimiser here, this is done below as AE needs one too
     tgn = tgn.to(device)
     
     input_dim = NODE_DIM + NODE_DIM + edge_features.shape[1]
@@ -174,8 +178,8 @@ for i in range(args.n_runs):
     
     for epoch in range(NUM_EPOCH):
         start_epoch = time.time()
-        
         ### Training
+
         # Reinitialize memory of the model at the start of each epoch
         if USE_MEMORY:
             tgn.memory.__init_memory__()
@@ -206,10 +210,15 @@ for i in range(args.n_runs):
                 timestamps_batch = train_data.timestamps[start_idx:end_idx]
 
                 size = len(sources_batch)
+                # Again most of this is the same, removed negs
+
+                # Removed the pos/neg label stuff too
 
                 # Set models to training mode
                 tgn = tgn.train()
                 autoencoder = autoencoder.train()
+
+                ### THE ACTUAL TRAINING SECTION OF THE TRAINING CODE!!!!!!!
 
                 # Get embeddings from TGN
                 source_embeddings, destination_embeddings, _ = tgn.compute_temporal_embeddings(
@@ -219,13 +228,13 @@ for i in range(args.n_runs):
                 # Get edge features for this batch
                 edge_features_batch = torch.from_numpy(edge_features[edge_idxs_batch]).float().to(device)
 
-                # Concatenate source embeddings, destination embeddings, and edge features
+                # Concatenate source embeddings, dest embeddings, and edge features into input
                 input_representation = torch.cat([source_embeddings, destination_embeddings, edge_features_batch], dim=1)
 
                 # Autoencoder reconstruction
                 reconstructed = autoencoder(input_representation)
 
-                # Reconstruction loss
+                # Calc reconstruction loss
                 reconstruction_loss = reconstruction_criterion(reconstructed, input_representation)
                 loss += reconstruction_loss
 
@@ -236,7 +245,8 @@ for i in range(args.n_runs):
             autoencoder_optimizer.step()
             train_losses.append(loss.item())
 
-            # Detach memory after 'args.backprop_every' number of batches
+            # Detach memory after 'args.backprop_every' number of batches so we don't backpropagate to
+            # the start of time
             if USE_MEMORY:
                 tgn.memory.detach_memory()
 
@@ -248,13 +258,16 @@ for i in range(args.n_runs):
         tgn.set_neighbor_finder(full_ngh_finder)
 
         if USE_MEMORY:
-            # Backup memory at the end of training
+            # Backup memory at the end of training, so later we can restore it and use it for the
+            # validation on unseen nodes
             train_memory_backup = tgn.memory.backup_memory()
 
         # Validation reconstruction loss
         tgn.eval()
         autoencoder.eval()
         val_losses = []
+
+        # Do I need some eval_autoencoder_reconstruction(...) function here?
         
         with torch.no_grad():
             val_num_batch = math.ceil(len(val_data.sources) / BATCH_SIZE)
