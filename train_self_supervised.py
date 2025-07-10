@@ -62,6 +62,10 @@ parser.add_argument('--use_source_embedding_in_message', action='store_true',
                     help='Whether to use the embedding of the source node as part of the message')
 parser.add_argument('--dyrep', action='store_true',
                     help='Whether to run the dyrep model')
+parser.add_argument('--learnable', action="store_true",
+                    help="Whether Message Aggregator is learnable module")
+parser.add_argument('--add_cls_token', action="store_true",
+                    help="Apend cls token like BERT to represent the final message")
 
 
 try:
@@ -159,7 +163,9 @@ for i in range(args.n_runs):
             mean_time_shift_dst=mean_time_shift_dst, std_time_shift_dst=std_time_shift_dst,
             use_destination_embedding_in_message=args.use_destination_embedding_in_message,
             use_source_embedding_in_message=args.use_source_embedding_in_message,
-            dyrep=args.dyrep)
+            dyrep=args.dyrep,
+            learnable=args.learnable,
+            add_cls_token=args.add_cls_token)
   criterion = torch.nn.BCELoss()
   optimizer = torch.optim.Adam(tgn.parameters(), lr=LEARNING_RATE)
   tgn = tgn.to(device)

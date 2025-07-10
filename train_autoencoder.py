@@ -59,7 +59,11 @@ parser.add_argument('--use_source_embedding_in_message', action='store_true',
                     help='Whether to use the embedding of the source node as part of the message')
 parser.add_argument('--dyrep', action='store_true',
                     help='Whether to run the dyrep model')
-parser.add_argument('--hidden_dim', type=int, default=128, help='Hidden dimension for autoencoder')
+parser.add_argument('--hidden_dim', type=int, default=256, help='Hidden dimension for autoencoder')
+parser.add_argument('--learnable', action="store_true",
+                    help="Whether Message Aggregator is learnable module")
+parser.add_argument('--add_cls_token', action="store_true",
+                    help="Apend cls token like BERT to represent the final message")
 
 try:
     args = parser.parse_args()
@@ -148,11 +152,14 @@ for i in range(args.n_runs):
               mean_time_shift_dst=mean_time_shift_dst, std_time_shift_dst=std_time_shift_dst,
               use_destination_embedding_in_message=args.use_destination_embedding_in_message,
               use_source_embedding_in_message=args.use_source_embedding_in_message,
-              dyrep=args.dyrep)
+              dyrep=args.dyrep,
+              learnable=args.learnable,
+              add_cls_token=args.add_cls_token)
     # No criterion or optimiser here, this is done below as AE needs one too
     tgn = tgn.to(device)
     
-    input_dim = NODE_DIM + NODE_DIM + edge_features.shape[1]
+    #input_dim = NODE_DIM + NODE_DIM + edge_features.shape[1]
+    input_dim = 429
     
     autoencoder = Autoencoder(input_dim, args.hidden_dim, DROP_OUT)
     autoencoder = autoencoder.to(device)
@@ -175,6 +182,7 @@ for i in range(args.n_runs):
     total_epoch_times = []
 
     early_stopper = EarlyStopMonitor(max_round=args.patience)
+    should_print = True
     
     for epoch in range(NUM_EPOCH):
         start_epoch = time.time()
@@ -224,12 +232,25 @@ for i in range(args.n_runs):
                 source_embeddings, destination_embeddings, _ = tgn.compute_temporal_embeddings(
                     sources_batch, destinations_batch, destinations_batch,
                     timestamps_batch, edge_idxs_batch, NUM_NEIGHBORS)
+                
+
+                if should_print:
+                    print(f"Source embeddings shape: {source_embeddings.shape}")
+                    print(f"Destination embeddings shape: {destination_embeddings.shape}")
 
                 # Get edge features for this batch
                 edge_features_batch = torch.from_numpy(edge_features[edge_idxs_batch]).float().to(device)
+                
+                if should_print:
+                    print(f"Edge features batch shape: {edge_features_batch.shape}")
+                    should_print = False
 
                 # Concatenate source embeddings, dest embeddings, and edge features into input
                 input_representation = torch.cat([source_embeddings, destination_embeddings, edge_features_batch], dim=1)
+
+                # Check input sizes here
+                # create a tensor of shape (1, len(input_representation)) where each value is the length of the input_representation[x]
+                #print(len(input_representation[1]), input_representation.shape)
 
                 # Autoencoder reconstruction
                 reconstructed = autoencoder(input_representation)

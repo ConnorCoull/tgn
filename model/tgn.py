@@ -38,6 +38,8 @@ class TGN(torch.nn.Module):
         use_destination_embedding_in_message=False,
         use_source_embedding_in_message=False,
         dyrep=False,
+        learnable=False,
+        add_cls_token=None
     ):
         super(TGN, self).__init__()
 
@@ -93,7 +95,12 @@ class TGN(torch.nn.Module):
                 device=device,
             )
             self.message_aggregator = get_message_aggregator(
-                aggregator_type=aggregator_type, device=device
+                aggregator_type=aggregator_type,
+                device=device,
+                n_heads=n_heads,
+                message_dim=message_dimension,
+                learnable=learnable,
+                add_cls_token=add_cls_token,
             )
             self.message_function = get_message_function(
                 module_type=message_function,
@@ -308,7 +315,6 @@ class TGN(torch.nn.Module):
         )
 
         # affinity_score takes two concat arguments here but the declaration requires 3
-        
 
         score = self.affinity_score(
             torch.cat([source_node_embedding, source_node_embedding], dim=0),
