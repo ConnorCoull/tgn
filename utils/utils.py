@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-
+from collections import defaultdict
 
 class MergeLayer(torch.nn.Module):
   def __init__(self, dim1, dim2, dim3, dim4):
@@ -235,46 +235,84 @@ class Autoencoder(torch.nn.Module):
     decoded = self.decoder(encoded)
     return decoded
   
-def get_negative_edges(sources_batch, destinations_batch, timestamps_batch):
-  sources_batch = np.array(sources_batch)
-  destinations_batch = np.array(destinations_batch)
-  timestamps_batch = np.array(timestamps_batch)
+# def get_negative_edges(sources_batch, destinations_batch, timestamps_batch):
+#   sources_batch = np.array(sources_batch)
+#   destinations_batch = np.array(destinations_batch)
+#   timestamps_batch = np.array(timestamps_batch)
 
+#   np.random.seed(2025)
+
+#   # Set of all unique node IDs
+#   all_nodes = np.unique(np.concatenate((sources_batch, destinations_batch)))
+#   num_nodes = all_nodes.max() + 1 # +1 as first node ID is 0
+
+#   fake_srcs = []
+#   fake_dsts = []
+
+#   unique_ts = np.unique(timestamps_batch)
+
+#   for ts in unique_ts:
+#     # Filter for timestamp
+#     mask = timestamps_batch == ts
+#     srcs = sources_batch[mask]
+#     dsts = destinations_batch[mask]
+
+#     # Positive edges
+#     pos_edges = set(zip(srcs, dsts))
+
+#     # Generate all possible (src, dst) pairs (excluding self-loops) as an IP won't talk to itself
+#     grid_src, grid_dst = np.meshgrid(all_nodes, all_nodes)
+#     all_possible_edges = np.vstack([grid_src.ravel(), grid_dst.ravel()]).T
+#     all_possible_edges = all_possible_edges[grid_src.ravel() != grid_dst.ravel()]
+
+#     all_possible_edges_set = set(map(tuple, all_possible_edges))
+#     negative_edges = list(all_possible_edges_set - pos_edges)
+
+#     # Sample same number of negatives as positives (or fewer if limited)
+#     sample_size = len(sources_batch[mask])
+#     sampled_negatives = np.random.choice(len(negative_edges), size=sample_size, replace=True)
+#     sampled_edges = [negative_edges[i] for i in sampled_negatives]
+
+#     # Append to results
+#     fake_srcs.extend([src for src, _ in sampled_edges])
+#     fake_dsts.extend([dst for _, dst in sampled_edges])
+
+#   return fake_srcs, fake_dsts
+
+def get_negative_edges(sources_batch, destinations_batch, timestamps_batch):
   np.random.seed(2025)
 
-  # Set of all unique node IDs
-  all_nodes = np.unique(np.concatenate((sources_batch, destinations_batch)))
-  num_nodes = all_nodes.max() + 1 # +1 as first node ID is 0
+  sources = np.array(sources_batch)
+  dests   = np.array(destinations_batch)
+  times   = np.array(timestamps_batch)
+
+  # 1) Precompute the global list of nodes
+  all_nodes = np.unique(np.concatenate((sources, dests)))
+  num_nodes = all_nodes.max() + 1
+
+  # 2) For each (src, ts), record the set of forbiddens (i.e. observed dests)
+  forbidden = defaultdict(set)
+  for src, dst, ts in zip(sources, dests, times):
+      forbidden[(src, ts)].add(dst)
 
   fake_srcs = []
   fake_dsts = []
 
-  unique_ts = np.unique(timestamps_batch)
+  # 3) Now, for *each* original positive edge (in order!), sample a negative
+  for src, ts in zip(sources, times):
+      # the candidates are all_nodes except src itself and except forbidden[src,ts]
+      forb = forbidden[(src, ts)]
+      # note: self‐loop is forbidden too
+      forb_with_self = forb | {src}
 
-  for ts in unique_ts:
-      # Filter for timestamp
-      mask = timestamps_batch == ts
-      srcs = sources_batch[mask]
-      dsts = destinations_batch[mask]
+      # fast way to pick one at random:
+      #   keep drawing until you hit a node not in the forbid set
+      while True:
+          neg_dst = np.random.randint(0, num_nodes)
+          if neg_dst not in forb_with_self:
+              break
 
-      # Positive edges
-      pos_edges = set(zip(srcs, dsts))
+      fake_srcs.append(src)
+      fake_dsts.append(neg_dst)
 
-      # Generate all possible (src, dst) pairs (excluding self-loops) as an IP won't talk to itself
-      grid_src, grid_dst = np.meshgrid(all_nodes, all_nodes)
-      all_possible_edges = np.vstack([grid_src.ravel(), grid_dst.ravel()]).T
-      all_possible_edges = all_possible_edges[grid_src.ravel() != grid_dst.ravel()]
-
-      all_possible_edges_set = set(map(tuple, all_possible_edges))
-      negative_edges = list(all_possible_edges_set - pos_edges)
-
-      # Sample same number of negatives as positives (or fewer if limited)
-      sample_size = len(pos_edges) # Pos and neg examples are same len
-      sampled_negatives = np.random.choice(len(negative_edges), size=sample_size, replace=False)
-      sampled_edges = [negative_edges[i] for i in sampled_negatives]
-
-      # Append to results
-      fake_srcs.extend([src for src, _ in sampled_edges])
-      fake_dsts.extend([dst for _, dst in sampled_edges])
-
-  return fake_srcs, fake_dsts
+  return np.array(fake_srcs), np.array(fake_dsts)

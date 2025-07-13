@@ -26,7 +26,7 @@ parser.add_argument('--n_degree', type=int, default=10, help='Number of neighbor
 parser.add_argument('--n_head', type=int, default=2, help='Number of heads used in attention layer')
 parser.add_argument('--n_epoch', type=int, default=50, help='Number of epochs')
 parser.add_argument('--n_layer', type=int, default=1, help='Number of network layers')
-parser.add_argument('--lr', type=float, default=0.0001, help='Learning rate')
+parser.add_argument('--lr', type=float, default=0.000001, help='Learning rate')
 parser.add_argument('--patience', type=int, default=5, help='Patience for early stopping')
 parser.add_argument('--n_runs', type=int, default=1, help='Number of runs')
 parser.add_argument('--drop_out', type=float, default=0.1, help='Dropout probability')
@@ -214,6 +214,13 @@ for i in range(args.n_runs):
         #_, negatives_batch = train_rand_sampler.sample(size)
         # TODO: Implement a function that pairs src and dst at each timestep and makes fake pairs
         _, negatives_batch = get_negative_edges(sources_batch, destinations_batch, timestamps_batch)
+        # print("batches")
+        # print("-" * 40)
+        # print(type(sources_batch))
+        # print(sources_batch)
+        # print(destinations_batch)
+        # print(negatives_batch)
+        
 
         with torch.no_grad():
           pos_label = torch.ones(size, dtype=torch.float, device=device)
