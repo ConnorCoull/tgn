@@ -10,7 +10,7 @@ from pathlib import Path
 
 from evaluation.evaluation import eval_edge_prediction
 from model.tgn import TGN
-from utils.utils import EarlyStopMonitor, RandEdgeSampler, get_neighbor_finder, get_negative_edges
+from utils.utils import EarlyStopMonitor, RandEdgeSampler, get_neighbor_finder
 from utils.data_processing import get_data, compute_time_statistics
 
 torch.manual_seed(0)
@@ -114,8 +114,7 @@ logger.info(args)
 
 ### Extract data for training, validation and testing
 node_features, edge_features, full_data, train_data, val_data, test_data, new_node_val_data, \
-new_node_test_data = get_data(DATA,
-                              different_new_nodes_between_val_and_test=args.different_new_nodes, randomize_features=args.randomize_features)
+new_node_test_data = get_data(DATA, different_new_nodes_between_val_and_test=args.different_new_nodes, randomize_features=args.randomize_features)
 
 # Initialize training neighbor finder to retrieve temporal graph
 train_ngh_finder = get_neighbor_finder(train_data, args.uniform)
@@ -172,11 +171,10 @@ for i in range(args.n_runs):
   logger.info('num of batches per epoch: {}'.format(num_batch))
   idx_list = np.arange(num_instance)
 
-  new_nodes_val_aps = []
-  val_aps = []
   epoch_times = []
   total_epoch_times = []
   train_losses = []
+  val_ap = []
 
   early_stopper = EarlyStopMonitor(max_round=args.patience)
   for epoch in range(NUM_EPOCH):
@@ -186,7 +184,7 @@ for i in range(args.n_runs):
     # Reinitialize memory of the model at the start of each epoch
     if USE_MEMORY:
       tgn.memory.__init_memory__()
-
+    
     # Train using only training graph
     tgn.set_neighbor_finder(train_ngh_finder)
     m_loss = []
@@ -209,124 +207,13 @@ for i in range(args.n_runs):
                                             train_data.destinations[start_idx:end_idx]
         edge_idxs_batch = train_data.edge_idxs[start_idx: end_idx]
         timestamps_batch = train_data.timestamps[start_idx:end_idx]
+        edge_features_batch = train_data.edge_features[start_idx:end_idx]
 
         size = len(sources_batch)
-        #_, negatives_batch = train_rand_sampler.sample(size)
-        # TODO: Implement a function that pairs src and dst at each timestep and makes fake pairs
-        _, negatives_batch = get_negative_edges(sources_batch, destinations_batch, timestamps_batch)
 
         with torch.no_grad():
           pos_label = torch.ones(size, dtype=torch.float, device=device)
           neg_label = torch.zeros(size, dtype=torch.float, device=device)
 
         tgn = tgn.train()
-        pos_prob, neg_prob = tgn.compute_edge_probabilities(sources_batch, destinations_batch, negatives_batch,
-                                                            timestamps_batch, edge_idxs_batch, NUM_NEIGHBORS)
-
-        loss += criterion(pos_prob.squeeze(), pos_label) + criterion(neg_prob.squeeze(), neg_label)
-
-      loss /= args.backprop_every
-
-      loss.backward()
-      optimizer.step()
-      m_loss.append(loss.item())
-
-      # Detach memory after 'args.backprop_every' number of batches so we don't backpropagate to
-      # the start of time
-      if USE_MEMORY:
-        tgn.memory.detach_memory()
-
-    epoch_time = time.time() - start_epoch
-    epoch_times.append(epoch_time)
-
-    ### Validation
-    # Validation uses the full graph
-    tgn.set_neighbor_finder(full_ngh_finder)
-
-    if USE_MEMORY:
-      # Backup memory at the end of training, so later we can restore it and use it for the
-      # validation on unseen nodes
-      train_memory_backup = tgn.memory.backup_memory()
-
-    val_ap, val_auc = eval_edge_prediction(model=tgn,
-                                                            negative_edge_sampler=val_rand_sampler,
-                                                            data=val_data,
-                                                            n_neighbors=NUM_NEIGHBORS)
-    if USE_MEMORY:
-      val_memory_backup = tgn.memory.backup_memory()
-      # Restore memory we had at the end of training to be used when validating on new nodes.
-      # Also backup memory after validation so it can be used for testing (since test edges are
-      # strictly later in time than validation edges)
-      tgn.memory.restore_memory(train_memory_backup)
-
-    if USE_MEMORY:
-      # Restore memory we had at the end of validation
-      tgn.memory.restore_memory(val_memory_backup)
-
-    val_aps.append(val_ap)
-    train_losses.append(np.mean(m_loss))
-
-    # Save temporary results to disk
-    pickle.dump({
-      "val_aps": val_aps,
-      "new_nodes_val_aps": new_nodes_val_aps,
-      "train_losses": train_losses,
-      "epoch_times": epoch_times,
-      "total_epoch_times": total_epoch_times
-    }, open(results_path, "wb"))
-
-    total_epoch_time = time.time() - start_epoch
-    total_epoch_times.append(total_epoch_time)
-
-    logger.info('epoch: {} took {:.2f}s'.format(epoch, total_epoch_time))
-    logger.info('Epoch mean loss: {}'.format(np.mean(m_loss)))
-    logger.info(
-      'val auc: {}'.format(val_auc))
-    logger.info(
-      'val ap: {}'.format(val_ap))
-
-    # Early stopping
-    if early_stopper.early_stop_check(val_ap):
-      logger.info('No improvement over {} epochs, stop training'.format(early_stopper.max_round))
-      logger.info(f'Loading the best model at epoch {early_stopper.best_epoch}')
-      best_model_path = get_checkpoint_path(early_stopper.best_epoch)
-      tgn.load_state_dict(torch.load(best_model_path))
-      logger.info(f'Loaded the best model at epoch {early_stopper.best_epoch} for inference')
-      tgn.eval()
-      break
-    else:
-      torch.save(tgn.state_dict(), get_checkpoint_path(epoch))
-
-  # Training has finished, we have loaded the best model, and we want to backup its current
-  # memory (which has seen validation edges) so that it can also be used when testing on unseen
-  # nodes
-  if USE_MEMORY:
-    val_memory_backup = tgn.memory.backup_memory()
-
-  ### Test
-  tgn.embedding_module.neighbor_finder = full_ngh_finder
-  test_ap, test_auc = eval_edge_prediction(model=tgn,
-                                                              negative_edge_sampler=test_rand_sampler,
-                                                              data=test_data,
-                                                              n_neighbors=NUM_NEIGHBORS)
-
-  if USE_MEMORY:
-    tgn.memory.restore_memory(val_memory_backup)
-
-  logger.info(
-    'Test statistics: Old nodes -- auc: {}, ap: {}'.format(test_auc, test_ap))
-  pickle.dump({
-    "val_aps": val_aps,
-    "new_nodes_val_aps": new_nodes_val_aps,
-    "test_ap": test_ap,
-    "epoch_times": epoch_times,
-    "train_losses": train_losses,
-    "total_epoch_times": total_epoch_times
-  }, open(results_path, "wb"))
-
-  logger.info('Saving TGN model')
-  if USE_MEMORY:
-    # Restore memory at the end of validation (save a model which is ready for testing)
-    tgn.memory.restore_memory(val_memory_backup)
-  torch.save(tgn.state_dict(), MODEL_SAVE_PATH)
-  logger.info('TGN model saved')
+        pos_prob, neg_prob = tgn.compute_edge_history(sources_batch, destinations_batch, timestamps_batch, edge_idxs_batch, edge_features, NUM_NEIGHBORS)

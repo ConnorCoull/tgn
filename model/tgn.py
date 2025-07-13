@@ -324,57 +324,31 @@ class TGN(torch.nn.Module):
         neg_score = score[n_samples:]
 
         return pos_score.sigmoid(), neg_score.sigmoid()
-
-    """
-    Coull, 2025
-    Using TGNs to detect malious flows of data in an ICS network.
-    Takes in the node and a message and predicts if the message is 0, benign, or 1, malicious.
-    """
-
-    def compute_edge_classification_malicious(
-        self, source_nodes, destination_nodes, edge_times, edge_idxs, n_neighbors=20
+    
+    def compute_edge_history(
+        self,
+        source_nodes,
+        destination_nodes,
+        edge_times,
+        edge_idxs,
+        edge_features,
+        n_neighbors=20,
     ):
         """
-        Computes probabilities of edges between sources and destination on whether or not they are malicious.
-
-        Nodes represented networked devices in an ICS network.
-        Edges represent messages sent between devices.
-
-        An edge can be either 0 (benign), or 1 (malicious).
-        This means that the output of the model can represent the probability of the edge being malicious.
-
-        Input will be the concatenation of the source and destination node embeddings, the edge features.
-
-        Output will be a single value between 0 and 1, representing the probability of the edge being malicious.
+        Compute the embeddings of each node, then evaluates embedding by predicting if an edge involved the node (as either its src or dst) in the past. 
         """
-
-        # Should I include negative nodes anyway - they might be important for the update of the memory
-
-        # Write MLP that takes 2 node embeddings and edge features and outputs a single value between 0 and 1
-        # Get temporal embeddings for source and destination nodes
+        n_samples = len(source_nodes)
         source_node_embedding, destination_node_embedding, _ = (
             self.compute_temporal_embeddings(
                 source_nodes,
                 destination_nodes,
-                np.array([]),  # Ok to leave empty?
+                destination_nodes,
                 edge_times,
                 edge_idxs,
-                n_neighbors,
             )
         )
 
-        edge_features = self.edge_raw_features[edge_idxs]
-
-        combined_features = torch.cat(
-            [source_node_embedding, destination_node_embedding, edge_features], dim=1
-        )
-
-        # Is this correct?
-        score = self.malicious_classifier(
-            combined_features,
-        ).squeeze(dim=1)
-
-        return score.sigmoid()
+        # Feed nodes and edges into a classifier
 
     def update_memory(self, nodes, messages):
         # Aggregate messages for the same nodes

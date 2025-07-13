@@ -234,3 +234,47 @@ class Autoencoder(torch.nn.Module):
     encoded = self.encoder(x)
     decoded = self.decoder(encoded)
     return decoded
+  
+def get_negative_edges(sources_batch, destinations_batch, timestamps_batch):
+  sources_batch = np.array(sources_batch)
+  destinations_batch = np.array(destinations_batch)
+  timestamps_batch = np.array(timestamps_batch)
+
+  np.random.seed(2025)
+
+  # Set of all unique node IDs
+  all_nodes = np.unique(np.concatenate((sources_batch, destinations_batch)))
+  num_nodes = all_nodes.max() + 1 # +1 as first node ID is 0
+
+  fake_srcs = []
+  fake_dsts = []
+
+  unique_ts = np.unique(timestamps_batch)
+
+  for ts in unique_ts:
+      # Filter for timestamp
+      mask = timestamps_batch == ts
+      srcs = sources_batch[mask]
+      dsts = destinations_batch[mask]
+
+      # Positive edges
+      pos_edges = set(zip(srcs, dsts))
+
+      # Generate all possible (src, dst) pairs (excluding self-loops) as an IP won't talk to itself
+      grid_src, grid_dst = np.meshgrid(all_nodes, all_nodes)
+      all_possible_edges = np.vstack([grid_src.ravel(), grid_dst.ravel()]).T
+      all_possible_edges = all_possible_edges[grid_src.ravel() != grid_dst.ravel()]
+
+      all_possible_edges_set = set(map(tuple, all_possible_edges))
+      negative_edges = list(all_possible_edges_set - pos_edges)
+
+      # Sample same number of negatives as positives (or fewer if limited)
+      sample_size = len(pos_edges) # Pos and neg examples are same len
+      sampled_negatives = np.random.choice(len(negative_edges), size=sample_size, replace=False)
+      sampled_edges = [negative_edges[i] for i in sampled_negatives]
+
+      # Append to results
+      fake_srcs.extend([src for src, _ in sampled_edges])
+      fake_dsts.extend([dst for _, dst in sampled_edges])
+
+  return fake_srcs, fake_dsts

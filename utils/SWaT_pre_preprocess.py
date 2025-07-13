@@ -6,9 +6,9 @@ Modbus_Value    service    s_port    Tag
 """
 Features
 binary flag indicating request/response (taken from Modbus_Function_Description having "- Response") - 1
-4 binary fields indicating if src and dst share same IP (i.e. 192.225.225.224 and 192.225.225.1 = [1, 1, 1, 0]) - 4
-type one-hot encoded [log, control, alert, other] - 4
-protocol one-hot encoded [tcp, udp, other] - 3
+4 binary fields indicating if src and dst share same IP (i.e. 192.225.225.224 and 192.225.225.1 = [1, 1, 1, 0]) - 4 (could delete)
+type one-hot encoded [log, control, alert, other] - 4 00 01 10 11 - binary encode?
+protocol one-hot encoded [tcp, udp, other] - 3 00 01 10 - binary encode?
 appi_name binary encoded with value representing appi_name (0 - CIP_read_tag_service, 1 - NetBIOS Datagram Service) - 5
 SCADA_Tag - one-hot encoded - 6 (To be deleted)
 Modbus_Function_Code - binary encoding representing the function code - 8
@@ -16,8 +16,26 @@ Modbus_Transaction_ID - Binary encoding representing the transaction ID - 16
 if response, time in s from when request with same Modbus_Transaction_ID was sent - 1
 service - binary encoded representing the port - 16
 s_port - binary encoded representing the port - 16
-Modbus_Value - turned into 38 features, each feature representing a bit in the value - 5
+Modbus_Value - turned into 8 decimal values, last 5 of which are kept - 5
 total = 1 + 4 + 4 + 3 + 5 + 6 + 8 + 16 + 1 + 16 + 16 + 5 = 85 features
+
+if compressed
+total = 1 + 2 + 2 + 5 + 8 + 16 + 16 + 16 + 1 + 5 = 72 features 
+
+if ReLU:
+binary flag indiciating request/response -1
+4 binary fields indicating if src and dst share the same IP - 4
+type one-hot encoded - 1
+protocol - 1
+appi_name - 1
+scada_tag - 1
+modbus - 1
+mosbus transaction - 1
+time is s for response - 1
+service - 1
+s_port - 1
+modbus_value - 5
+total = 1 + 4 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 5 = 19
 """
 
 import numpy as np
@@ -138,20 +156,20 @@ def preprocess(folder_name):
                     appi_name_bin = convert_to_binary_list(appi_name_dict[appi_name], 5)
 
                     # SCADA_Tag one-hot encoded - DROP
-                    scada_tag_one_hot = [0] * 6
-                    scada_tag = e[15]
-                    if scada_tag == 'HMI_LIT101':
-                        scada_tag_one_hot[0] = 1
-                    elif scada_tag == 'HMI_FIT201':
-                        scada_tag_one_hot[1] = 1
-                    elif scada_tag == 'HMI_AIT202':
-                        scada_tag_one_hot[2] = 1
-                    elif scada_tag == 'HMI_LIT301':
-                        scada_tag_one_hot[3] = 1
-                    elif scada_tag == 'HMI_LIT401':
-                        scada_tag_one_hot[4] = 1
-                    else:
-                        scada_tag_one_hot[5] = 1
+                    # scada_tag_one_hot = [0] * 6
+                    # scada_tag = e[15]
+                    # if scada_tag == 'HMI_LIT101':
+                    #     scada_tag_one_hot[0] = 1
+                    # elif scada_tag == 'HMI_FIT201':
+                    #     scada_tag_one_hot[1] = 1
+                    # elif scada_tag == 'HMI_AIT202':
+                    #     scada_tag_one_hot[2] = 1
+                    # elif scada_tag == 'HMI_LIT301':
+                    #     scada_tag_one_hot[3] = 1
+                    # elif scada_tag == 'HMI_LIT401':
+                    #     scada_tag_one_hot[4] = 1
+                    # else:
+                    #     scada_tag_one_hot[5] = 1
 
                     # Modbus_Function_Code binary encoding
                     if e[12] == '':
@@ -195,7 +213,7 @@ def preprocess(folder_name):
 
                     # Write to file in format idx, src, dst, ts, features
                     features = (is_response, *is_same_mask, *type_one_hot, *proto_one_hot,
-                                *appi_name_bin, *scada_tag_one_hot, *modbus_function_code_bin,
+                                *appi_name_bin, *modbus_function_code_bin,
                                 *modbus_transaction_id_bin, response_time_s, *service_bin,
                                 *s_port_bin, *list_of_modbus_value)
                     feature_str = ','.join(map(str, features))
@@ -210,6 +228,10 @@ def preprocess(folder_name):
                         out_f.write(f"{counter},{src},{dst},{rel_ts},{feature_str}\n")
                     
                     counter += 1
+    # print out ip_to_id mapping
+    print("IP to ID mapping:")
+    for ip, id_ in ip_to_id.items():
+        print(f"{ip} -> {id_}")
 
 
 def normalise():

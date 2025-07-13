@@ -12,23 +12,28 @@ def preprocess(data_name):
 
   with open(data_name) as f:
     #s = next(f) # skip header
-    for idx, line in enumerate(f):
+    for _, line in enumerate(f):
       e = line.strip().split(',')
-      u = int(e[0])
-      i = int(e[1])
+      #print(len(e))
+      idx = int(e[0])
+      u = int(e[1])
+      i = int(e[2])
 
-      ts = float(e[2])
-      label = float(e[3])  # int(e[3])
+      ts = float(e[3])
+      #label = float(e[3])  # int(e[3])
 
       feat = np.array([float(x) for x in e[4:]])
 
       u_list.append(u)
       i_list.append(i)
       ts_list.append(ts)
-      label_list.append(label)
+      label_list.append(0)
       idx_list.append(idx)
 
       feat_l.append(feat)
+  print(len(u_list))
+  print(len(i_list))
+  print(len(ts_list))
   return pd.DataFrame({'u': u_list,
                        'i': i_list,
                        'ts': ts_list,
@@ -65,7 +70,7 @@ def run(data_name, bipartite=True):
   OUT_NODE_FEAT = './data/ml_{}_node.npy'.format(data_name)
 
   df, feat = preprocess(PATH)
-  new_df = reindex(df, bipartite)
+  new_df = df#reindex(df, bipartite)
 
   empty = np.zeros(feat.shape[1])[np.newaxis, :]
   feat = np.vstack([empty, feat])

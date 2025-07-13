@@ -173,8 +173,8 @@ class AttentionMessageAggregator(MessageAggregator):
       unique_timestamps = torch.stack(unique_timestamps) if len(to_update_node_ids) > 0 else []
       return to_update_node_ids, unique_messages, unique_timestamps
 
-
-def get_message_aggregator(aggregator_type, device, n_heads, message_dim, learnable, add_cls_token):
+#REMOVE ALL = None
+def get_message_aggregator(aggregator_type, device, n_heads=None, message_dim=None, learnable=None, add_cls_token=None):
   if aggregator_type == "last":
     return LastMessageAggregator(device=device)
   elif aggregator_type == "mean":
