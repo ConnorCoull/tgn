@@ -159,7 +159,7 @@ for i in range(args.n_runs):
     tgn = tgn.to(device)
     
     #input_dim = NODE_DIM + NODE_DIM + edge_features.shape[1]
-    input_dim = 429
+    input_dim = 50 + 50 + 85 # 185
 
     num_instance = len(train_data.sources)
     num_batch = math.ceil(num_instance / BATCH_SIZE)
@@ -227,7 +227,7 @@ for i in range(args.n_runs):
                 # Removed the pos/neg label stuff too
 
                 # Set models to training mode
-                autoencoder_optimizer.zero_grad()
+                #autoencoder_optimizer.zero_grad()
 
                 ### THE ACTUAL TRAINING SECTION OF THE TRAINING CODE!!!!!!!
 
