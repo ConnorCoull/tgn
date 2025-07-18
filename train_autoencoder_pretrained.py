@@ -186,7 +186,6 @@ for i in range(args.n_runs):
     total_epoch_times = []
 
     early_stopper = EarlyStopMonitor(max_round=args.patience)
-    should_print = True
     
     for epoch in range(NUM_EPOCH):
         start_epoch = time.time()
@@ -235,11 +234,6 @@ for i in range(args.n_runs):
                 source_embeddings, destination_embeddings, _ = tgn.compute_temporal_embeddings(
                     sources_batch, destinations_batch, destinations_batch,
                     timestamps_batch, edge_idxs_batch, NUM_NEIGHBORS)
-                
-
-                if should_print:
-                    print(f"Source embeddings shape: {source_embeddings.shape}")
-                    print(f"Destination embeddings shape: {destination_embeddings.shape}")
 
                 # Get edge features for this batch
                 edge_features_batch = torch.from_numpy(edge_features[edge_idxs_batch]).float().to(device)
