@@ -16,8 +16,8 @@ def preprocess(data_name):
       e = line.strip().split(',')
       #print(len(e))
       idx = int(e[0])
-      u = int(e[1])
-      i = int(e[2])
+      u = int(float(e[1]))
+      i = int(float(e[2]))
 
       ts = float(e[3])
       #label = float(e[3])  # int(e[3])
