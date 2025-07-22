@@ -238,10 +238,6 @@ for i in range(args.n_runs):
 
                 # Get edge features for this batch
                 edge_features_batch = torch.from_numpy(edge_features[edge_idxs_batch]).float().to(device)
-                
-                if should_print:
-                    print(f"Edge features batch shape: {edge_features_batch.shape}")
-                    should_print = False
 
                 # Concatenate source embeddings, dest embeddings, and edge features into input
                 input_representation = torch.cat([source_embeddings, destination_embeddings, edge_features_batch], dim=1)
