@@ -126,6 +126,7 @@ full_ngh_finder = get_neighbor_finder(full_data, args.uniform)
 
 # Set device
 device_string = 'cuda:{}'.format(GPU) if torch.cuda.is_available() else 'cpu'
+print(device_string)
 device = torch.device(device_string)
 
 # Compute time statistics
