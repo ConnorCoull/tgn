@@ -15,7 +15,7 @@ def preprocess(data_name):
     for _, line in enumerate(f):
       e = line.strip().split(',')
       #print(len(e))
-      idx = int(e[0])
+      idx = int(float(e[0]))
       u = int(float(e[1]))
       i = int(float(e[2]))
 
