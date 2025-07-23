@@ -20,7 +20,7 @@ np.random.seed(0)
 parser = argparse.ArgumentParser('TGN autoencoder training')
 parser.add_argument('-d', '--data', type=str, help='Dataset name (eg. wikipedia or reddit)',
                     default='wikipedia')
-parser.add_argument('edge_features', type=int, help='Path to edge features file',default=85)
+parser.add_argument('--edge_features', type=int, help='Path to edge features file',default=85)
 parser.add_argument('--bs', type=int, default=200, help='Batch_size')
 parser.add_argument('--prefix', type=str, default='', help='Prefix to name the checkpoints')
 parser.add_argument('--n_degree', type=int, default=10, help='Number of neighbors to sample')
