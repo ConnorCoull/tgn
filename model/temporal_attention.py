@@ -25,6 +25,8 @@ class TemporalAttentionLayer(torch.nn.Module):
 
     self.merger = MergeLayer(self.query_dim, n_node_features, n_node_features, output_dimension)
 
+    print(f"Heads: {n_head}, Node features: {n_node_features}, Query dim: {self.query_dim}")
+
     self.multi_head_target = nn.MultiheadAttention(embed_dim=self.query_dim,
                                                    kdim=self.key_dim,
                                                    vdim=self.key_dim,
