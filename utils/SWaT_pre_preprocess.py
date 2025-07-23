@@ -5,6 +5,11 @@ Modbus_Value    service    s_port    Tag
 """
 """
 Features
+id
+src ip (as an int id) - 1
+dst ip (as an int id) - 1
+timestamp of ms since first event - 1
+is_response - 1
 binary flag indicating request/response (taken from Modbus_Function_Description having "- Response") - 1
 4 binary fields indicating if src and dst share same IP (i.e. 192.225.225.224 and 192.225.225.1 = [1, 1, 1, 0]) - 4 (could delete)
 type one-hot encoded [log, control, alert, other] - 4 00 01 10 11 - binary encode?
@@ -89,15 +94,16 @@ def preprocess(folder_name):
     modbus_transaction_id_ts_dict = {}
     ip_to_id = {}
     counter = 1
-    for filename in os.listdir(folder_name):
+    for filename in sorted(os.listdir(folder_name)):
         print(f"Processing file: {filename}")
         if filename.endswith('.csv'):
             try:
-                file_date = f"{filename[33:37]}-{filename[38:40]}-{filename[41:43]}"
+                file_date = f"{filename[0:4]}-{filename[5:7]}-{filename[8:10]}"
                 file_path = os.path.join(folder_name, filename)
                 with open(file_path) as f:
                     s = next(f)
-                    for _, line in enumerate(f, start=1):
+                    for tracker, line in enumerate(f, start=1):
+                        print(tracker, end='\r')
                         e = line.strip().split(',')
 
                         # if any of the fields are '', skip the line
@@ -226,7 +232,10 @@ def preprocess(folder_name):
                         src = ip_to_id[src]
                         dst = ip_to_id[dst]
 
-                        with open(f"{folder_name}/processed/SWaT_{file_date}.csv", 'a') as out_f:
+                        top_folder_name = "D:/SWAT/network"
+                        if not os.path.exists(f"{top_folder_name}/processed"):
+                            os.makedirs(f"{top_folder_name}/processed")
+                        with open(f"{top_folder_name}/processed/SWaT_{file_date}.csv", 'a') as out_f:
                             out_f.write(f"{counter},{src},{dst},{rel_ts},{feature_str}\n")
                         
                         counter += 1

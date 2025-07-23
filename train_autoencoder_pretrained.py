@@ -20,6 +20,7 @@ np.random.seed(0)
 parser = argparse.ArgumentParser('TGN autoencoder training')
 parser.add_argument('-d', '--data', type=str, help='Dataset name (eg. wikipedia or reddit)',
                     default='wikipedia')
+parser.add_argument('edge_features', type=int, help='Path to edge features file',default=85)
 parser.add_argument('--bs', type=int, default=200, help='Batch_size')
 parser.add_argument('--prefix', type=str, default='', help='Prefix to name the checkpoints')
 parser.add_argument('--n_degree', type=int, default=10, help='Number of neighbors to sample')
@@ -86,6 +87,7 @@ USE_MEMORY = args.use_memory
 MESSAGE_DIM = args.message_dim
 MEMORY_DIM = args.memory_dim
 HIDDEN_DIM = args.hidden_dim
+EDGE_FEAT = args.edge_features
 
 Path("./saved_models/").mkdir(parents=True, exist_ok=True)
 Path("./saved_checkpoints/").mkdir(parents=True, exist_ok=True)
@@ -160,7 +162,7 @@ for i in range(args.n_runs):
     tgn = tgn.to(device)
     
     #input_dim = NODE_DIM + NODE_DIM + edge_features.shape[1]
-    input_dim = 50 + 50 + 85 # 185
+    input_dim = 50 + 50 + EDGE_FEAT # 185
 
     num_instance = len(train_data.sources)
     num_batch = math.ceil(num_instance / BATCH_SIZE)
