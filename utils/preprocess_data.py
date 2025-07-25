@@ -22,7 +22,7 @@ def preprocess(data_name):
       ts = float(e[3])
       label = int(float(e[4]))  # int(e[3])
 
-      feat = np.array([float(x) for x in e[4:]])
+      feat = np.array([float(x) for x in e[5:]])
 
       u_list.append(u)
       i_list.append(i)
