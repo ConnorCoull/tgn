@@ -20,14 +20,14 @@ def preprocess(data_name):
       i = int(float(e[2]))
 
       ts = float(e[3])
-      #label = float(e[3])  # int(e[3])
+      label = int(float(e[4]))  # int(e[3])
 
       feat = np.array([float(x) for x in e[4:]])
 
       u_list.append(u)
       i_list.append(i)
       ts_list.append(ts)
-      label_list.append(0)
+      label_list.append(label)
       idx_list.append(idx)
 
       feat_l.append(feat)
