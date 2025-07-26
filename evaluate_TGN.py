@@ -232,4 +232,4 @@ for k in range(0, num_batch):
         # output: id, ts, label, reconstruction_loss
         for i in range(size):
             row = edge_features_batch_df.iloc[i]
-            f.write(f"{row.iloc[0]},{row.iloc[3]},{row.iloc[4]},{reconstruction_loss[i]}\n".encode())
+            f.write(f"{row.iloc[0]},{row.iloc[3]},{row.iloc[4]},{reconstruction_loss[i].item()}\n".encode())
