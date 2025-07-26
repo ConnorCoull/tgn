@@ -217,6 +217,7 @@ for k in range(0, num_batch):
                     timestamps_batch, edge_idxs_batch, NUM_NEIGHBORS)
     
     print(edge_idxs_batch)
+    print(df.shape)
     print(df.iloc[0].head(10))
 
     edge_features_batch_df = df.iloc[edge_idxs_batch]  # Keep as DataFrame
