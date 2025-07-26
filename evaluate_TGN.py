@@ -197,7 +197,7 @@ tgn.eval()
 autoencoder.eval()
 
 #load orginal edge feature
-df = pd.read_csv(f"data/{DATA}.csv")
+df = pd.read_csv(f"data/{DATA}.csv", header=None)
 
 for k in range(0, num_batch):
     if k >= num_batch:
