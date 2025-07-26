@@ -217,7 +217,7 @@ for k in range(0, num_batch):
                     timestamps_batch, edge_idxs_batch, NUM_NEIGHBORS)
     
     print(edge_idxs_batch)
-    print(edge_features_batch_df.head())
+    print(df.head())
 
     edge_features_batch_df = df.iloc[edge_idxs_batch]  # Keep as DataFrame
     edge_features_batch = torch.from_numpy(edge_features[edge_idxs_batch]).float().to(device)
