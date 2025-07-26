@@ -175,7 +175,7 @@ logger.info('Start evaluation')
 
 autoencoder = Autoencoder(input_dim, args.hidden_dim, DROP_OUT)
 autoencoder = autoencoder.to(device)
-reconstruction_criterion = torch.nn.MSELoss()
+reconstruction_criterion = torch.nn.MSELoss(reduction='none')
 # Load the autoencoder model if it exists
 if os.path.exists(MODEL_SAVE_PATH):
     checkpoint = torch.load(MODEL_SAVE_PATH, weights_only=False)
@@ -224,12 +224,18 @@ for k in range(0, num_batch):
 
     input_representation = input_representation.to(device)
 
+    # reconstruction_output = autoencoder(input_representation)
+
+    # reconstruction_loss = reconstruction_criterion(reconstruction_output, input_representation)
+
     reconstruction_output = autoencoder(input_representation)
 
     reconstruction_loss = reconstruction_criterion(reconstruction_output, input_representation)
+
+    per_sample_losses = reconstruction_loss.mean(dim=1)
 
     with open("results/{}_reconstruction_losses.csv".format(args.prefix), "ab") as f:
         # output: id, ts, label, reconstruction_loss
         for i in range(size):
             row = edge_features_batch_df.iloc[i]
-            f.write(f"{row.iloc[0]},{row.iloc[3]},{row.iloc[4]},{reconstruction_loss[i].item()}\n".encode())
+            f.write(f"{row.iloc[0]},{row.iloc[3]},{row.iloc[4]},{per_sample_losses[i].item()}\n".encode())
