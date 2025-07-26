@@ -11,7 +11,7 @@ import pickle
 from pathlib import Path
 
 from model.tgn import TGN
-from utils.utils import EarlyStopMonitor, get_neighbor_finder, Autoencoder
+from utils.utils import get_neighbor_finder, Autoencoder
 from utils.data_processing import get_data, compute_time_statistics
 
 # For consistency, same as other training files
@@ -171,13 +171,16 @@ tgn.eval()
 logger.info('TGN models loaded')
 logger.info('Start evaluation')
 
+
+
 autoencoder = Autoencoder(input_dim, args.hidden_dim, DROP_OUT)
 autoencoder = autoencoder.to(device)
 reconstruction_criterion = torch.nn.MSELoss()
 # Load the autoencoder model if it exists
 if os.path.exists(MODEL_SAVE_PATH):
+    checkpoint = torch.load(MODEL_SAVE_PATH, weights_only=False)
     logger.info('Loading saved autoencoder model')
-    autoencoder.load_state_dict(torch.load(MODEL_SAVE_PATH))
+    autoencoder.load_state_dict(checkpoint['autoencoder_state_dict'])
     autoencoder.eval()
 
 
