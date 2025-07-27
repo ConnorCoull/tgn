@@ -200,11 +200,11 @@ if args.autoencoder == "vanilla":
     autoencoder = autoencoder.to(device)
     reconstruction_criterion = torch.nn.MSELoss(reduction='none')
 elif args.autoencoder == "variational":
-    autoencoder = VariationalAutoencoder(input_dim, args.latent_dim, DROP_OUT)
+    autoencoder = VariationalAutoencoder(input_dim, args.hidden_dim, args.latent_dim, DROP_OUT)
     autoencoder = autoencoder.to(device)
     reconstruction_criterion = torch.nn.MSELoss(reduction='none')
 elif args.autoencoder == "sparse":
-    autoencoder = SparseAutoencoder(input_dim, args.hidden_dim, args.sparsity_weight, args.sparsity_target, DROP_OUT)
+    autoencoder = SparseAutoencoder(input_dim, args.hidden_dim, DROP_OUT, args.sparsity_weight, args.sparsity_target)
     autoencoder = autoencoder.to(device)
     reconstruction_criterion = torch.nn.MSELoss(reduction='none')
 else:
@@ -282,12 +282,13 @@ for k in range(0, num_batch):
     elif args.autoencoder == "sparse":
         reconstruction_output, encoded = autoencoder(input_representation)
         # Per-sample reconstruction loss
-        per_sample_losses = F.mse_loss(reconstruction_output, input_representation, reduction='none').sum(dim=1)
-        # Optional: Add per-sample sparsity measure
-        # sparsity_violation_per_sample = torch.norm(encoded, p=1, dim=1)  # L1 norm as sparsity measure
-        # per_sample_losses += args.sparsity_weight * sparsity_violation_per_sample
+        recon_loss_per_sample = F.mse_loss(reconstruction_output, input_representation, reduction='none').sum(dim=1)
+        # Per-sample sparsity violation (L1 norm of activations)
+        sparsity_violation_per_sample = torch.norm(encoded, p=1, dim=1)
+        # Combined loss: reconstruction + weighted sparsity violation
+        per_sample_losses = recon_loss_per_sample + args.sparsity_weight * sparsity_violation_per_sample
 
-    with open("results/{}_reconstruction_losses.csv".format(args.prefix), "ab") as f:
+    with open("results/{}_{}_reconstruction_losses.csv".format(args.prefix, args.autoencoder), "ab") as f:
         # output: id, ts, label, reconstruction_loss
         for i in range(size):
             row = edge_features_batch_df.iloc[i]
