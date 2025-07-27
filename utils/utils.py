@@ -234,6 +234,108 @@ class Autoencoder(torch.nn.Module):
     encoded = self.encoder(x)
     decoded = self.decoder(encoded)
     return decoded
+
+class SparseAutoencoder(torch.nn.Module):
+    def __init__(self, input_dim, hidden_dim=128, dropout=0.1, sparsity_weight=0.01, sparsity_target=0.05):
+        super(SparseAutoencoder, self).__init__()
+        self.sparsity_weight = sparsity_weight
+        self.sparsity_target = sparsity_target
+        
+        self.encoder = torch.nn.Sequential(
+            torch.nn.Linear(input_dim, hidden_dim),
+            torch.nn.ReLU(),
+            torch.nn.Dropout(p=dropout),
+            torch.nn.Linear(hidden_dim, hidden_dim // 2),
+            torch.nn.ReLU(),
+            torch.nn.Dropout(p=dropout)
+        )
+        self.decoder = torch.nn.Sequential(
+            torch.nn.Linear(hidden_dim // 2, hidden_dim),
+            torch.nn.ReLU(),
+            torch.nn.Dropout(p=dropout),
+            torch.nn.Linear(hidden_dim, input_dim)
+        )
+
+    def forward(self, x):
+        encoded = self.encoder(x)
+        decoded = self.decoder(encoded)
+        return decoded, encoded
+
+    def sparsity_loss(self, encoded):
+        """Compute KL divergence sparsity loss"""
+        # Average activation across the batch
+        rho_hat = torch.mean(encoded, dim=0)
+        rho = self.sparsity_target
+        
+        # KL divergence: rho * log(rho/rho_hat) + (1-rho) * log((1-rho)/(1-rho_hat))
+        eps = 1e-8  # for numerical stability
+        rho_hat = torch.clamp(rho_hat, eps, 1-eps)
+        
+        kl_div = rho * torch.log(rho / rho_hat) + (1 - rho) * torch.log((1 - rho) / (1 - rho_hat))
+        return torch.sum(kl_div)
+    
+
+class VariationalAutoencoder(torch.nn.Module):
+    def __init__(self, input_dim, hidden_dim=128, latent_dim=64, dropout=0.1):
+        super(VariationalAutoencoder, self).__init__()
+        self.latent_dim = latent_dim
+        
+        # Encoder
+        self.encoder_hidden = torch.nn.Sequential(
+            torch.nn.Linear(input_dim, hidden_dim),
+            torch.nn.ReLU(),
+            torch.nn.Dropout(p=dropout),
+            torch.nn.Linear(hidden_dim, hidden_dim // 2),
+            torch.nn.ReLU(),
+            torch.nn.Dropout(p=dropout)
+        )
+        
+        # Mean and log variance layers
+        self.fc_mu = torch.nn.Linear(hidden_dim // 2, latent_dim)
+        self.fc_logvar = torch.nn.Linear(hidden_dim // 2, latent_dim)
+        
+        # Decoder
+        self.decoder = torch.nn.Sequential(
+            torch.nn.Linear(latent_dim, hidden_dim // 2),
+            torch.nn.ReLU(),
+            torch.nn.Dropout(p=dropout),
+            torch.nn.Linear(hidden_dim // 2, hidden_dim),
+            torch.nn.ReLU(),
+            torch.nn.Dropout(p=dropout),
+            torch.nn.Linear(hidden_dim, input_dim)
+        )
+
+    def encode(self, x):
+        """Encode input to latent parameters"""
+        h = self.encoder_hidden(x)
+        mu = self.fc_mu(h)
+        logvar = self.fc_logvar(h)
+        return mu, logvar
+
+    def reparameterize(self, mu, logvar):
+        """Reparameterization trick"""
+        if self.training:
+            std = torch.exp(0.5 * logvar)
+            eps = torch.randn_like(std)
+            return mu + eps * std
+        else:
+            return mu
+
+    def decode(self, z):
+        """Decode latent representation to output"""
+        return self.decoder(z)
+
+    def forward(self, x):
+        mu, logvar = self.encode(x)
+        z = self.reparameterize(mu, logvar)
+        reconstructed = self.decode(z)
+        return reconstructed, mu, logvar
+
+    def kl_divergence(self, mu, logvar):
+        """Compute KL divergence between latent distribution and standard normal"""
+        # KL(q(z|x) || p(z)) where p(z) = N(0, I)
+        # = -0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
+        return -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), dim=1).mean()
   
 # def get_negative_edges(sources_batch, destinations_batch, timestamps_batch):
 #   sources_batch = np.array(sources_batch)
