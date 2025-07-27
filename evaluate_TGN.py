@@ -9,9 +9,10 @@ import torch
 import numpy as np
 import pickle
 from pathlib import Path
+import torch.nn.functional as F
 
 from model.tgn import TGN
-from utils.utils import get_neighbor_finder, Autoencoder
+from utils.utils import get_neighbor_finder, Autoencoder, SparseAutoencoder, VariationalAutoencoder
 from utils.data_processing import get_data, compute_time_statistics
 
 # For consistency, same as other training files
@@ -67,6 +68,12 @@ parser.add_argument('--learnable', action="store_true",
                     help="Whether Message Aggregator is learnable module")
 parser.add_argument('--add_cls_token', action="store_true",
                     help="Apend cls token like BERT to represent the final message")
+parser.add_argument('--autoencoder', type=str, default="vanilla", choices=["vanilla", "variational", "sparse"],
+                    help="Type of autoencoder to use: vanilla, variational, or sparse")
+parser.add_argument('--latent_dim', type=int, default=64, help='Latent dimension for VAE')
+parser.add_argument('--beta', type=float, default=1.0, help='Beta parameter for KL divergence weight (beta-VAE)')
+parser.add_argument('--sparsity_weight', type=float, default=0.01, help='Weight for sparsity loss')
+parser.add_argument('--sparsity_target', type=float, default=0.05, help='Target sparsity level')
 
 try:
     args = parser.parse_args()
@@ -93,8 +100,16 @@ EDGE_FEAT = args.edge_features
 
 Path("./saved_models/").mkdir(parents=True, exist_ok=True)
 Path("./saved_checkpoints/").mkdir(parents=True, exist_ok=True)
-MODEL_SAVE_PATH = f'./saved_models/{args.prefix}-{args.data}-autoencoder.pth'
-get_checkpoint_path = lambda epoch: f'./saved_checkpoints/{args.prefix}-{args.data}-autoencoder-{epoch}.pth'
+
+if args.autoencoder == "vanilla":
+    MODEL_SAVE_PATH = f'./saved_models/{args.prefix}-{args.data}-autoencoder.pth'
+    get_checkpoint_path = lambda epoch: f'./saved_checkpoints/{args.prefix}-{args.data}-autoencoder-{epoch}.pth'
+elif args.autoencoder == "variational":
+    MODEL_SAVE_PATH = f'./saved_models/{args.prefix}-{args.data}-variational_autoencoder.pth'
+    get_checkpoint_path = lambda epoch: f'./saved_checkpoints/{args.prefix}-{args.data}-variational_autoencoder-{epoch}.pth'
+elif args.autoencoder == "sparse":
+    MODEL_SAVE_PATH = f'./saved_models/{args.prefix}-{args.data}-sparse_autoencoder.pth'
+    get_checkpoint_path = lambda epoch: f'./saved_checkpoints/{args.prefix}-{args.data}-sparse_autoencoder-{epoch}.pth'
 
 ### set up logger (same as other training files)
 logging.basicConfig(level=logging.INFO)
@@ -128,8 +143,16 @@ device = torch.device(device_string)
 mean_time_shift_src, std_time_shift_src, mean_time_shift_dst, std_time_shift_dst = \
     compute_time_statistics(full_data.sources, full_data.destinations, full_data.timestamps)
 
-results_path = "results/{}_evaluation.pkl".format(args.prefix)
-Path("results/").mkdir(parents=True, exist_ok=True)
+if args.autoencoder == "vanilla":
+    results_path = "results/{}_evaluation_autoencoder.pkl".format(args.prefix)
+    Path("results/").mkdir(parents=True, exist_ok=True)
+elif args.autoencoder == "variational":
+    results_path = "results/{}_evaluation_variational_autoencoder.pkl".format(args.prefix)
+    Path("results/").mkdir(parents=True, exist_ok=True)
+elif args.autoencoder == "sparse":
+    results_path = "results/{}_evaluation_sparse_autoencoder.pkl".format(args.prefix)
+    Path("results/").mkdir(parents=True, exist_ok=True)
+
 
 # Initialize TGN Model
 tgn = TGN(neighbor_finder=full_ngh_finder, node_features=node_features,
@@ -172,10 +195,20 @@ logger.info('TGN models loaded')
 logger.info('Start evaluation')
 
 
-
-autoencoder = Autoencoder(input_dim, args.hidden_dim, DROP_OUT)
-autoencoder = autoencoder.to(device)
-reconstruction_criterion = torch.nn.MSELoss(reduction='none')
+if args.autoencoder == "vanilla":
+    autoencoder = Autoencoder(input_dim, args.hidden_dim, DROP_OUT)
+    autoencoder = autoencoder.to(device)
+    reconstruction_criterion = torch.nn.MSELoss(reduction='none')
+elif args.autoencoder == "variational":
+    autoencoder = VariationalAutoencoder(input_dim, args.latent_dim, DROP_OUT)
+    autoencoder = autoencoder.to(device)
+    reconstruction_criterion = torch.nn.MSELoss(reduction='none')
+elif args.autoencoder == "sparse":
+    autoencoder = SparseAutoencoder(input_dim, args.hidden_dim, args.sparsity_weight, args.sparsity_target, DROP_OUT)
+    autoencoder = autoencoder.to(device)
+    reconstruction_criterion = torch.nn.MSELoss(reduction='none')
+else:
+    raise ValueError("Unknown autoencoder type: {}".format(args.autoencoder))
 # Load the autoencoder model if it exists
 if os.path.exists(MODEL_SAVE_PATH):
     checkpoint = torch.load(MODEL_SAVE_PATH, weights_only=False)
@@ -187,6 +220,7 @@ if os.path.exists(MODEL_SAVE_PATH):
 reconstruction_losses = []
 epoch_times = []
 total_epoch_times = []
+test_kl_loss_vals = []
 
 start_epoch = time.time()
 
@@ -232,11 +266,26 @@ for k in range(0, num_batch):
 
     # reconstruction_loss = reconstruction_criterion(reconstruction_output, input_representation)
 
-    reconstruction_output = autoencoder(input_representation)
+    if args.autoencoder == "vanilla":
+        reconstruction_output = autoencoder(input_representation)
+        # Compute per-sample reconstruction loss
+        per_sample_losses = F.mse_loss(reconstruction_output, input_representation, reduction='none').sum(dim=1)
 
-    reconstruction_loss = reconstruction_criterion(reconstruction_output, input_representation)
+    elif args.autoencoder == "variational":
+        reconstruction_output, mu, logvar = autoencoder(input_representation)
+        # Per-sample reconstruction loss
+        recon_loss_per_sample = F.mse_loss(reconstruction_output, input_representation, reduction='none').sum(dim=1)
+        # Per-sample KL divergence
+        kl_loss_per_sample = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), dim=1)
+        per_sample_losses = recon_loss_per_sample + args.beta * kl_loss_per_sample
 
-    per_sample_losses = reconstruction_loss.mean(dim=1)
+    elif args.autoencoder == "sparse":
+        reconstruction_output, encoded = autoencoder(input_representation)
+        # Per-sample reconstruction loss
+        per_sample_losses = F.mse_loss(reconstruction_output, input_representation, reduction='none').sum(dim=1)
+        # Optional: Add per-sample sparsity measure
+        # sparsity_violation_per_sample = torch.norm(encoded, p=1, dim=1)  # L1 norm as sparsity measure
+        # per_sample_losses += args.sparsity_weight * sparsity_violation_per_sample
 
     with open("results/{}_reconstruction_losses.csv".format(args.prefix), "ab") as f:
         # output: id, ts, label, reconstruction_loss
