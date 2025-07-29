@@ -26,7 +26,7 @@ parser.add_argument('--n_degree', type=int, default=10, help='Number of neighbor
 parser.add_argument('--n_head', type=int, default=2, help='Number of heads used in attention layer')
 parser.add_argument('--n_epoch', type=int, default=50, help='Number of epochs')
 parser.add_argument('--n_layer', type=int, default=1, help='Number of network layers')
-parser.add_argument('--lr', type=float, default=0.00005, help='Learning rate')
+parser.add_argument('--lr', type=float, default=0.000005, help='Learning rate')
 parser.add_argument('--patience', type=int, default=5, help='Patience for early stopping')
 parser.add_argument('--n_runs', type=int, default=1, help='Number of runs')
 parser.add_argument('--drop_out', type=float, default=0.9, help='Dropout probability')
@@ -94,9 +94,9 @@ MEMORY_DIM = args.memory_dim
 
 Path("./saved_models/").mkdir(parents=True, exist_ok=True)
 Path("./saved_checkpoints/").mkdir(parents=True, exist_ok=True)
-MODEL_SAVE_PATH = f'./saved_models/{args.data}-{args.embedding_module}-{args.message_dim}.pth'
+MODEL_SAVE_PATH = f'./saved_models/{args.data}-{args.embedding_module}-{args.memory_dim}.pth'
 get_checkpoint_path = lambda \
-    epoch: f'./saved_checkpoints/{args.data}-{args.embedding_module}-{args.message_dim}.pth'
+    epoch: f'./saved_checkpoints/{args.data}-{args.embedding_module}-{args.memory_dim}.pth'
 
 ### set up logger
 logging.basicConfig(level=logging.INFO)
