@@ -26,16 +26,16 @@ parser.add_argument('--n_degree', type=int, default=10, help='Number of neighbor
 parser.add_argument('--n_head', type=int, default=2, help='Number of heads used in attention layer')
 parser.add_argument('--n_epoch', type=int, default=50, help='Number of epochs')
 parser.add_argument('--n_layer', type=int, default=1, help='Number of network layers')
-parser.add_argument('--lr', type=float, default=0.000001, help='Learning rate')
+parser.add_argument('--lr', type=float, default=0.00005, help='Learning rate')
 parser.add_argument('--patience', type=int, default=5, help='Patience for early stopping')
 parser.add_argument('--n_runs', type=int, default=1, help='Number of runs')
-parser.add_argument('--drop_out', type=float, default=0.1, help='Dropout probability')
+parser.add_argument('--drop_out', type=float, default=0.9, help='Dropout probability')
 parser.add_argument('--gpu', type=int, default=0, help='Idx for the gpu to use')
 parser.add_argument('--node_dim', type=int, default=100, help='Dimensions of the node embedding')
 parser.add_argument('--time_dim', type=int, default=100, help='Dimensions of the time embedding')
 parser.add_argument('--backprop_every', type=int, default=1, help='Every how many batches to '
                                                                   'backprop')
-parser.add_argument('--use_memory', action='store_true',
+parser.add_argument('--use_memory', default=True, action='store_true',
                     help='Whether to augment the model with a node memory')
 parser.add_argument('--embedding_module', type=str, default="graph_attention", choices=[
   "graph_attention", "graph_sum", "identity", "time"], help='Type of embedding module')
@@ -43,7 +43,7 @@ parser.add_argument('--message_function', type=str, default="identity", choices=
   "mlp", "identity"], help='Type of message function')
 parser.add_argument('--memory_updater', type=str, default="gru", choices=[
   "gru", "rnn"], help='Type of memory updater')
-parser.add_argument('--aggregator', type=str, default="attention", choices=["last", "mean", "attention"], help='Type of message aggregator')
+parser.add_argument('--aggregator', type=str, default="mean", choices=["last", "mean", "attention"], help='Type of message aggregator')
 
 parser.add_argument('--memory_update_at_end', action='store_true',
                     help='Whether to update memory at the end or at the start of the batch')
@@ -90,11 +90,13 @@ USE_MEMORY = args.use_memory
 MESSAGE_DIM = args.message_dim
 MEMORY_DIM = args.memory_dim
 
+# data, embedding, memory {args.data}-{args.embedding_module}-{message_dim}
+
 Path("./saved_models/").mkdir(parents=True, exist_ok=True)
 Path("./saved_checkpoints/").mkdir(parents=True, exist_ok=True)
-MODEL_SAVE_PATH = f'./saved_models/{args.prefix}-{args.data}.pth'
+MODEL_SAVE_PATH = f'./saved_models/{args.data}-{args.embedding_module}-{args.message_dim}.pth'
 get_checkpoint_path = lambda \
-    epoch: f'./saved_checkpoints/{args.prefix}-{args.data}-{epoch}.pth'
+    epoch: f'./saved_checkpoints/{args.data}-{args.embedding_module}-{args.message_dim}.pth'
 
 ### set up logger
 logging.basicConfig(level=logging.INFO)
@@ -139,7 +141,7 @@ mean_time_shift_src, std_time_shift_src, mean_time_shift_dst, std_time_shift_dst
   compute_time_statistics(full_data.sources, full_data.destinations, full_data.timestamps)
 
 for i in range(args.n_runs):
-  results_path = "results/{}_{}.pkl".format(args.prefix, i) if i > 0 else "results/{}.pkl".format(args.prefix)
+  results_path = "results/{}-{}-{}_{}.pkl".format(args.data, args.embedding_module, args.message_dim, i) if i > 0 else "results/{}-{}-{}.pkl".format(args.data, args.embedding_module, args.message_dim)
   Path("results/").mkdir(parents=True, exist_ok=True)
 
   # Initialize Model
