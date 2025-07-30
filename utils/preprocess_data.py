@@ -31,9 +31,6 @@ def preprocess(data_name):
       idx_list.append(idx)
 
       feat_l.append(feat)
-  print(len(u_list))
-  print(len(i_list))
-  print(len(ts_list))
   return pd.DataFrame({'u': u_list,
                        'i': i_list,
                        'ts': ts_list,
@@ -62,7 +59,7 @@ def reindex(df, bipartite=True):
   return new_df
 
 
-def run(data_name, bipartite=True):
+def run(data_name, max_nodes=-1, memory_dim=-1):
   Path("data/").mkdir(parents=True, exist_ok=True)
   PATH = './data/{}.csv'.format(data_name)
   OUT_DF = './data/ml_{}.csv'.format(data_name)
@@ -70,13 +67,21 @@ def run(data_name, bipartite=True):
   OUT_NODE_FEAT = './data/ml_{}_node.npy'.format(data_name)
 
   df, feat = preprocess(PATH)
-  new_df = df#reindex(df, bipartite)
+  new_df = df #reindex(df, bipartite)
 
   empty = np.zeros(feat.shape[1])[np.newaxis, :]
   feat = np.vstack([empty, feat])
 
-  max_idx = max(new_df.u.max(), new_df.i.max())
-  rand_feat = np.zeros((max_idx + 1, 50))
+  if max_nodes > 0:
+    max_idx = max_nodes
+  else:
+    max_idx = max(new_df.u.max(), new_df.i.max())
+  print('Max Nodes:', max_idx)
+  if memory_dim > 0:
+    rand_feat = np.zeros((max_idx + 1, memory_dim))
+  else:
+    rand_feat = np.random.rand(max_idx + 1, 50)
+  print('Memory Dimension:', rand_feat.shape[1])
 
   new_df.to_csv(OUT_DF)
   np.save(OUT_FEAT, feat)
@@ -85,8 +90,9 @@ def run(data_name, bipartite=True):
 parser = argparse.ArgumentParser('Interface for TGN data preprocessing')
 parser.add_argument('--data', type=str, help='Dataset name (eg. wikipedia or reddit)',
                     default='wikipedia')
-parser.add_argument('--bipartite', action='store_true', help='Whether the graph is bipartite')
+parser.add_argument('--max_nodes', type=int, default=-1, help='Maximum number of nodes across train, val, test, and eval splits')
+parser.add_argument('--memory_dim', type=int, default=-1, help='Memory dimension for TGN')
 
 args = parser.parse_args()
 
-run(args.data, bipartite=args.bipartite)
+run(args.data, max_nodes=args.max_nodes, memory_dim=args.memory_dim)
