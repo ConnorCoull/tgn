@@ -94,9 +94,9 @@ MEMORY_DIM = args.memory_dim
 
 Path("./saved_models/").mkdir(parents=True, exist_ok=True)
 Path("./saved_checkpoints/").mkdir(parents=True, exist_ok=True)
-MODEL_SAVE_PATH = f'./saved_models/{args.data}-{args.embedding_module}-{args.memory_dim}.pth'
+MODEL_SAVE_PATH = f'./saved_models/{args.data}-{args.embedding_module}/{args.aggregator}-{args.memory_dim}.pth'
 get_checkpoint_path = lambda \
-    epoch: f'./saved_checkpoints/{args.data}-{args.embedding_module}-{args.memory_dim}.pth'
+    epoch: f'./saved_checkpoints/{args.data}-{args.embedding_module}/{args.aggregator}-{args.memory_dim}.pth'
 
 ### set up logger
 logging.basicConfig(level=logging.INFO)
