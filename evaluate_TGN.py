@@ -102,15 +102,14 @@ EDGE_FEAT = args.edge_features
 Path("./saved_models/").mkdir(parents=True, exist_ok=True)
 Path("./saved_checkpoints/").mkdir(parents=True, exist_ok=True)
 
-if args.autoencoder == "vanilla":
-    MODEL_SAVE_PATH = f'./saved_models/{args.prefix}_{args.embedding_module}-{args.aggregator}-{args.memory_dim}-vanilla{args.hidden_dim}-autoencoder.pth'
-    get_checkpoint_path = lambda epoch: f'./saved_checkpoints/{args.prefix}_{args.embedding_module}-{args.aggregator}-{args.memory_dim}-vanilla{args.hidden_dim}-autoencoder-{epoch}.pth'
-elif args.autoencoder == "variational":
-    MODEL_SAVE_PATH = f'./saved_models/{args.prefix}_{args.embedding_module}-{args.aggregator}-{args.memory_dim}-var{args.hidden_dim}-autoencoder.pth'
-    get_checkpoint_path = lambda epoch: f'./saved_checkpoints/{args.prefix}_{args.embedding_module}-{args.aggregator}-{args.memory_dim}-var{args.hidden_dim}-autoencoder-{epoch}.pth'
-elif args.autoencoder == "sparse":
-    MODEL_SAVE_PATH = f'./saved_models/{args.prefix}_{args.embedding_module}-{args.aggregator}-{args.memory_dim}-sparse{args.hidden_dim}-autoencoder.pth'
-    get_checkpoint_path = lambda epoch: f'./saved_checkpoints/{args.prefix}_{args.embedding_module}-{args.aggregator}-{args.memory_dim}-sparse{args.hidden_dim}-autoencoder-{epoch}.pth'
+MODEL_SAVE_PATH = f'./saved_models/{args.prefix}_{args.embedding_module}-{args.aggregator}-{args.memory_dim}-{args.autoencoder}{args.hidden_dim}-autoencoder.pth'
+get_checkpoint_path = lambda epoch: f'./saved_checkpoints/{args.prefix}_{args.embedding_module}-{args.aggregator}-{args.memory_dim}-{args.autoencoder}{args.hidden_dim}-autoencoder-{epoch}.pth'
+# elif args.autoencoder == "variational":
+#     MODEL_SAVE_PATH = f'./saved_models/{args.prefix}_{args.embedding_module}-{args.aggregator}-{args.memory_dim}-var{args.hidden_dim}-autoencoder.pth'
+#     get_checkpoint_path = lambda epoch: f'./saved_checkpoints/{args.prefix}_{args.embedding_module}-{args.aggregator}-{args.memory_dim}-var{args.hidden_dim}-autoencoder-{epoch}.pth'
+# elif args.autoencoder == "sparse":
+#     MODEL_SAVE_PATH = f'./saved_models/{args.prefix}_{args.embedding_module}-{args.aggregator}-{args.memory_dim}-sparse{args.hidden_dim}-autoencoder.pth'
+#     get_checkpoint_path = lambda epoch: f'./saved_checkpoints/{args.prefix}_{args.embedding_module}-{args.aggregator}-{args.memory_dim}-sparse{args.hidden_dim}-autoencoder-{epoch}.pth'
 
 ### set up logger (same as other training files)
 logging.basicConfig(level=logging.INFO)
@@ -295,7 +294,7 @@ for k in range(0, num_batch):
 
     logger.info(f"Batch {k+1}/{num_batch} processed in {final_time - start_time:.4f} seconds")
 
-    with open("results/{}_{}_reconstruction_losses.csv".format(args.prefix, args.autoencoder), "ab") as f:
+    with open(f"RECONSTRUCTION_LOSS_{args.data}_{args.embedding_module}-{args.aggregator}-{args.memory_dim}-{args.autoencoder}{args.hidden_dim}-autoencoder", "ab") as f:
         # output: id, ts, label, reconstruction_loss
         for i in range(size):
             row = edge_features_batch_df.iloc[i]
