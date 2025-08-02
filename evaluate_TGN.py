@@ -103,14 +103,14 @@ Path("./saved_models/").mkdir(parents=True, exist_ok=True)
 Path("./saved_checkpoints/").mkdir(parents=True, exist_ok=True)
 
 if args.autoencoder == "vanilla":
-    MODEL_SAVE_PATH = f'./saved_models/{args.data}_{args.embedding_module}-{args.aggregator}-{args.memory_dim}-vanilla{args.hidden_dim}-autoencoder.pth'
-    get_checkpoint_path = lambda epoch: f'./saved_checkpoints/{args.data}_{args.embedding_module}-{args.aggregator}-{args.memory_dim}-vanilla{args.hidden_dim}-autoencoder-{epoch}.pth'
+    MODEL_SAVE_PATH = f'./saved_models/{args.prefix}_{args.embedding_module}-{args.aggregator}-{args.memory_dim}-vanilla{args.hidden_dim}-autoencoder.pth'
+    get_checkpoint_path = lambda epoch: f'./saved_checkpoints/{args.prefix}_{args.embedding_module}-{args.aggregator}-{args.memory_dim}-vanilla{args.hidden_dim}-autoencoder-{epoch}.pth'
 elif args.autoencoder == "variational":
-    MODEL_SAVE_PATH = f'./saved_models/{args.data}_{args.embedding_module}-{args.aggregator}-{args.memory_dim}-var{args.hidden_dim}-autoencoder.pth'
-    get_checkpoint_path = lambda epoch: f'./saved_checkpoints/{args.data}_{args.embedding_module}-{args.aggregator}-{args.memory_dim}-var{args.hidden_dim}-autoencoder-{epoch}.pth'
+    MODEL_SAVE_PATH = f'./saved_models/{args.prefix}_{args.embedding_module}-{args.aggregator}-{args.memory_dim}-var{args.hidden_dim}-autoencoder.pth'
+    get_checkpoint_path = lambda epoch: f'./saved_checkpoints/{args.prefix}_{args.embedding_module}-{args.aggregator}-{args.memory_dim}-var{args.hidden_dim}-autoencoder-{epoch}.pth'
 elif args.autoencoder == "sparse":
-    MODEL_SAVE_PATH = f'./saved_models/{args.data}_{args.embedding_module}-{args.aggregator}-{args.memory_dim}-sparse{args.hidden_dim}-autoencoder.pth'
-    get_checkpoint_path = lambda epoch: f'./saved_checkpoints/{args.data}_{args.embedding_module}-{args.aggregator}-{args.memory_dim}-sparse{args.hidden_dim}-autoencoder-{epoch}.pth'
+    MODEL_SAVE_PATH = f'./saved_models/{args.prefix}_{args.embedding_module}-{args.aggregator}-{args.memory_dim}-sparse{args.hidden_dim}-autoencoder.pth'
+    get_checkpoint_path = lambda epoch: f'./saved_checkpoints/{args.prefix}_{args.embedding_module}-{args.aggregator}-{args.memory_dim}-sparse{args.hidden_dim}-autoencoder-{epoch}.pth'
 
 ### set up logger (same as other training files)
 logging.basicConfig(level=logging.INFO)
@@ -189,7 +189,7 @@ logger.info('num of batches per epoch: {}'.format(num_batch))
 idx_list = np.arange(num_instance)
 
 logger.info('Loading saved TGN model')
-model_path = f'./saved_models/{args.data}_{args.embedding_module}-{args.aggregator}-{args.memory_dim}.pth'
+model_path = f'./saved_models/{args.prefix}_{args.embedding_module}-{args.aggregator}-{args.memory_dim}.pth'
 tgn.load_state_dict(torch.load(model_path))
 tgn.eval()
 logger.info('TGN models loaded')
