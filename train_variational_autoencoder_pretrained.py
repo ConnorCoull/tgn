@@ -159,7 +159,7 @@ for i in range(args.n_runs):
               add_cls_token=args.add_cls_token)
     tgn = tgn.to(device)
     
-    input_dim = 50 + 50 + EDGE_FEAT # 185
+    input_dim = MEMORY_DIM + MEMORY_DIM + EDGE_FEAT # 185
 
     num_instance = len(train_data.sources)
     num_batch = math.ceil(num_instance / BATCH_SIZE)
