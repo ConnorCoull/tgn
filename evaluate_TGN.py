@@ -71,9 +71,9 @@ parser.add_argument('--add_cls_token', action="store_true",
                     help="Apend cls token like BERT to represent the final message")
 parser.add_argument('--autoencoder', type=str, default="vanilla", choices=["vanilla", "variational", "sparse"],
                     help="Type of autoencoder to use: vanilla, variational, or sparse")
-parser.add_argument('--latent_dim', type=int, default=64, help='Latent dimension for VAE')
-parser.add_argument('--beta', type=float, default=1.0, help='Beta parameter for KL divergence weight (beta-VAE)')
-parser.add_argument('--sparsity_weight', type=float, default=0.01, help='Weight for sparsity loss')
+parser.add_argument('--latent_dim', type=int, default=32, help='Latent dimension for VAE')
+parser.add_argument('--beta', type=float, default=0.01, help='Beta parameter for KL divergence weight (beta-VAE)')
+parser.add_argument('--sparsity_weight', type=float, default=0.05, help='Weight for sparsity loss')
 parser.add_argument('--sparsity_target', type=float, default=0.05, help='Target sparsity level')
 
 try:
@@ -294,7 +294,7 @@ for k in range(0, num_batch):
 
     logger.info(f"Batch {k+1}/{num_batch} processed in {final_time - start_time:.4f} seconds")
 
-    with open(f"RECONSTRUCTION_LOSS_{args.data}_{args.embedding_module}-{args.aggregator}-{args.memory_dim}-{args.autoencoder}{args.hidden_dim}-autoencoder", "ab") as f:
+    with open(f"results/RECONSTRUCTION_LOSS_{args.data}_{args.embedding_module}-{args.aggregator}-{args.memory_dim}-{args.autoencoder}{args.hidden_dim}-autoencoder.csv", "ab") as f:
         # output: id, ts, label, reconstruction_loss
         for i in range(size):
             row = edge_features_batch_df.iloc[i]
