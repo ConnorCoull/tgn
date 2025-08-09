@@ -21,11 +21,11 @@ parser = argparse.ArgumentParser('TGN autoencoder training')
 parser.add_argument('-d', '--data', type=str, help='Dataset name (eg. wikipedia or reddit)',
                     default='wikipedia')
 parser.add_argument('--edge_features', type=int, help='Path to edge features file',default=85)
-parser.add_argument('--bs', type=int, default=200, help='Batch_size')
+parser.add_argument('--bs', type=int, default=50, help='Batch_size')
 parser.add_argument('--prefix', type=str, default='', help='Prefix to name the checkpoints')
 parser.add_argument('--n_degree', type=int, default=10, help='Number of neighbors to sample')
 parser.add_argument('--n_head', type=int, default=2, help='Number of heads used in attention layer')
-parser.add_argument('--n_epoch', type=int, default=50, help='Number of epochs')
+parser.add_argument('--n_epoch', type=int, default=200, help='Number of epochs')
 parser.add_argument('--n_layer', type=int, default=1, help='Number of network layers')
 parser.add_argument('--lr', type=float, default=0.0001, help='Learning rate')
 parser.add_argument('--patience', type=int, default=5, help='Patience for early stopping')
@@ -35,7 +35,7 @@ parser.add_argument('--gpu', type=int, default=0, help='Idx for the gpu to use')
 parser.add_argument('--node_dim', type=int, default=100, help='Dimensions of the node embedding')
 parser.add_argument('--time_dim', type=int, default=100, help='Dimensions of the time embedding')
 parser.add_argument('--backprop_every', type=int, default=1, help='Every how many batches to backprop')
-parser.add_argument('--use_memory', action='store_true',
+parser.add_argument('--use_memory', action='store_true', default=True,
                     help='Whether to augment the model with a node memory')
 parser.add_argument('--embedding_module', type=str, default="graph_attention", choices=[
     "graph_attention", "graph_sum", "identity", "time"], help='Type of embedding module')
@@ -43,7 +43,7 @@ parser.add_argument('--message_function', type=str, default="identity", choices=
     "mlp", "identity"], help='Type of message function')
 parser.add_argument('--memory_updater', type=str, default="gru", choices=[
     "gru", "rnn"], help='Type of memory updater')
-parser.add_argument('--aggregator', type=str, default="attention", choices=["last", "mean", "attention"], help='Type of message aggregator')
+parser.add_argument('--aggregator', type=str, default="mean", choices=["last", "mean", "attention"], help='Type of message aggregator')
 parser.add_argument('--memory_update_at_end', action='store_true',
                     help='Whether to update memory at the end or at the start of the batch')
 parser.add_argument('--message_dim', type=int, default=100, help='Dimensions of the messages')
@@ -60,7 +60,7 @@ parser.add_argument('--use_source_embedding_in_message', action='store_true',
                     help='Whether to use the embedding of the source node as part of the message')
 parser.add_argument('--dyrep', action='store_true',
                     help='Whether to run the dyrep model')
-parser.add_argument('--hidden_dim', type=int, default=256, help='Hidden dimension for autoencoder')
+parser.add_argument('--hidden_dim', type=int, default=16, help='Hidden dimension for autoencoder')
 parser.add_argument('--learnable', action="store_true",
                     help="Whether Message Aggregator is learnable module")
 parser.add_argument('--add_cls_token', action="store_true",
@@ -91,8 +91,8 @@ EDGE_FEAT = args.edge_features
 
 Path("./saved_models/").mkdir(parents=True, exist_ok=True)
 Path("./saved_checkpoints/").mkdir(parents=True, exist_ok=True)
-MODEL_SAVE_PATH = f'./saved_models/{args.prefix}-{args.data}-autoencoder.pth'
-get_checkpoint_path = lambda epoch: f'./saved_checkpoints/{args.prefix}-{args.data}-autoencoder-{epoch}.pth'
+MODEL_SAVE_PATH = f'./saved_models/{args.data}_{args.embedding_module}-{args.aggregator}-{args.memory_dim}-vanilla{args.hidden_dim}-autoencoder.pth'
+get_checkpoint_path = lambda epoch: f'./saved_checkpoints/{args.data}_{args.embedding_module}-{args.aggregator}-{args.memory_dim}-vanilla{args.hidden_dim}-autoencoder-{epoch}.pth'
 
 ### set up logger (same as other training files)
 logging.basicConfig(level=logging.INFO)
@@ -136,7 +136,7 @@ mean_time_shift_src, std_time_shift_src, mean_time_shift_dst, std_time_shift_dst
     compute_time_statistics(full_data.sources, full_data.destinations, full_data.timestamps)
 
 for i in range(args.n_runs):
-    results_path = "results/{}_{}_autoencoder.pkl".format(args.prefix, i) if i > 0 else "results/{}_autoencoder.pkl".format(args.prefix)
+    results_path = f"results/{args.data}_{args.embedding_module}-{args.aggregator}-{args.memory_dim}-vanilla{args.hidden_dim}-autoencoder.pkl" if i > 0 else f"results/{args.data}_{args.embedding_module}-{args.aggregator}-{args.memory_dim}-vanilla{args.hidden_dim}-autoencoder.pkl"
     Path("results/").mkdir(parents=True, exist_ok=True)
 
     # Initialize TGN Model
@@ -162,7 +162,7 @@ for i in range(args.n_runs):
     tgn = tgn.to(device)
     
     #input_dim = NODE_DIM + NODE_DIM + edge_features.shape[1]
-    input_dim = 50 + 50 + EDGE_FEAT # 185
+    input_dim = MEMORY_DIM + MEMORY_DIM + edge_features.shape[1] # 185
 
     num_instance = len(train_data.sources)
     num_batch = math.ceil(num_instance / BATCH_SIZE)
@@ -172,11 +172,11 @@ for i in range(args.n_runs):
     idx_list = np.arange(num_instance)
 
     logger.info('Loading saved TGN model')
-    model_path = f'./saved_models/{args.prefix}-{DATA}.pth'
+    model_path = f'./saved_models/{args.data}_{args.embedding_module}-{args.aggregator}-{args.memory_dim}.pth'
     tgn.load_state_dict(torch.load(model_path))
     tgn.eval()
     logger.info('TGN models loaded')
-    logger.info('Start training node classification task')
+    logger.info('Start training reconstruction task')
 
     autoencoder = Autoencoder(input_dim, args.hidden_dim, DROP_OUT)
     autoencoder = autoencoder.to(device)
@@ -391,6 +391,7 @@ for i in range(args.n_runs):
     avg_test_loss = np.mean(test_losses)
 
     logger.info('Test reconstruction loss: {:.6f}'.format(avg_test_loss))
+    logger.info('Average epoch time: {:.6f}'.format(sum(epoch_times)/len(epoch_times)))
     
     # Save final results for this run
     pickle.dump({
