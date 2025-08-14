@@ -39,7 +39,8 @@ class TGN(torch.nn.Module):
         use_source_embedding_in_message=False,
         dyrep=False,
         learnable=False,
-        add_cls_token=None
+        add_cls_token=None,
+        n_attn_head=2
     ):
         super(TGN, self).__init__()
 
@@ -97,7 +98,7 @@ class TGN(torch.nn.Module):
             self.message_aggregator = get_message_aggregator(
                 aggregator_type=aggregator_type,
                 device=device,
-                n_heads=n_heads,
+                n_heads=n_attn_head,
                 message_dim=message_dimension,
                 learnable=learnable,
                 add_cls_token=add_cls_token,

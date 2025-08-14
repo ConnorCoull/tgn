@@ -66,8 +66,8 @@ parser.add_argument('--learnable', action="store_true",
 parser.add_argument('--add_cls_token', action="store_true",
                     help="Apend cls token like BERT to represent the final message")
 # New VAE specific arguments
-parser.add_argument('--latent_dim', type=int, default=64, help='Latent dimension for VAE')
-parser.add_argument('--beta', type=float, default=1.0, help='Beta parameter for KL divergence weight (beta-VAE)')
+parser.add_argument('--latent_dim', type=int, default=32, help='Latent dimension for VAE')
+parser.add_argument('--beta', type=float, default=0.02, help='Beta parameter for KL divergence weight (beta-VAE)')
 
 try:
     args = parser.parse_args()
@@ -95,7 +95,7 @@ EDGE_FEAT = args.edge_features
 Path("./saved_models/").mkdir(parents=True, exist_ok=True)
 Path("./saved_checkpoints/").mkdir(parents=True, exist_ok=True)
 MODEL_SAVE_PATH = f'./saved_models/{args.data}_{args.embedding_module}-{args.aggregator}-{args.memory_dim}-variational{args.hidden_dim}-autoencoder.pth'
-get_checkpoint_path = lambda epoch: f'./{args.data}_{args.embedding_module}-{args.aggregator}-{args.memory_dim}-variational{args.hidden_dim}-autoencoder-{epoch}.pth'
+get_checkpoint_path = lambda epoch: f'./saved_checkpoints/{args.data}_{args.embedding_module}-{args.aggregator}-{args.memory_dim}-variational{args.hidden_dim}-autoencoder-{epoch}.pth'
 
 ### set up logger (same as other training files)
 logging.basicConfig(level=logging.INFO)
@@ -399,6 +399,8 @@ for i in range(args.n_runs):
     avg_test_kl_loss = np.mean(test_kl_loss_vals)
 
     logger.info('Test reconstruction loss: {:.6f}, KL loss: {:.6f}'.format(avg_test_loss, avg_test_kl_loss))
+    logger.info('Average epoch time: {:.6f}'.format(sum(epoch_times)/len(epoch_times)))
+
     
     # Save final results for this run
     pickle.dump({

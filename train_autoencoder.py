@@ -20,10 +20,11 @@ np.random.seed(0)
 parser = argparse.ArgumentParser('TGN autoencoder training')
 parser.add_argument('-d', '--data', type=str, help='Dataset name (eg. wikipedia or reddit)',
                     default='wikipedia')
-parser.add_argument('--bs', type=int, default=200, help='Batch_size')
+parser.add_argument('--bs', type=int, default=50, help='Batch_size')
 parser.add_argument('--prefix', type=str, default='', help='Prefix to name the checkpoints')
 parser.add_argument('--n_degree', type=int, default=10, help='Number of neighbors to sample')
 parser.add_argument('--n_head', type=int, default=2, help='Number of heads used in attention layer')
+parser.add_argument('--n_attn_head', type=int, default=2, help='Number of attention heads used in the aggregation module')
 parser.add_argument('--n_epoch', type=int, default=50, help='Number of epochs')
 parser.add_argument('--n_layer', type=int, default=1, help='Number of network layers')
 parser.add_argument('--lr', type=float, default=0.0001, help='Learning rate')
@@ -89,8 +90,8 @@ HIDDEN_DIM = args.hidden_dim
 
 Path("./saved_models/").mkdir(parents=True, exist_ok=True)
 Path("./saved_checkpoints/").mkdir(parents=True, exist_ok=True)
-MODEL_SAVE_PATH = f'./saved_models/{args.prefix}-{args.data}-autoencoder.pth'
-get_checkpoint_path = lambda epoch: f'./saved_checkpoints/{args.prefix}-{args.data}-autoencoder-{epoch}.pth'
+MODEL_SAVE_PATH = f'./saved_models/{args.data}_{args.embedding_module}-{args.aggregator}-{args.memory_dim}-vanilla{args.hidden_dim}-autoencoder.pth'
+get_checkpoint_path = lambda epoch: f'./saved_checkpoints/{args.data}_{args.embedding_module}-{args.aggregator}-{args.memory_dim}-vanilla{args.hidden_dim}-autoencoder-{epoch}.pth'
 
 ### set up logger (same as other training files)
 logging.basicConfig(level=logging.INFO)

@@ -20,13 +20,14 @@ np.random.seed(0)
 parser = argparse.ArgumentParser('TGN self-supervised training')
 parser.add_argument('-d', '--data', type=str, help='Dataset name (eg. wikipedia or reddit)',
                     default='wikipedia')
-parser.add_argument('--bs', type=int, default=200, help='Batch_size')
+parser.add_argument('--bs', type=int, default=50, help='Batch_size')
 parser.add_argument('--prefix', type=str, default='', help='Prefix to name the checkpoints')
 parser.add_argument('--n_degree', type=int, default=10, help='Number of neighbors to sample')
 parser.add_argument('--n_head', type=int, default=2, help='Number of heads used in attention layer')
+parser.add_argument('--n_attn_head', type=int, default=2, help='Number of attention heads used in the aggregation module')
 parser.add_argument('--n_epoch', type=int, default=100, help='Number of epochs')
 parser.add_argument('--n_layer', type=int, default=1, help='Number of network layers')
-parser.add_argument('--lr', type=float, default=0.000005, help='Learning rate')
+parser.add_argument('--lr', type=float, default=0.00005, help='Learning rate')
 parser.add_argument('--patience', type=int, default=5, help='Patience for early stopping')
 parser.add_argument('--n_runs', type=int, default=1, help='Number of runs')
 parser.add_argument('--drop_out', type=float, default=0.9, help='Dropout probability')
@@ -162,7 +163,8 @@ for i in range(args.n_runs):
             use_source_embedding_in_message=args.use_source_embedding_in_message,
             dyrep=args.dyrep,
             learnable=args.learnable,
-            add_cls_token=args.add_cls_token)
+            add_cls_token=args.add_cls_token,
+            n_attn_head=args.n_attn_head)
   criterion = torch.nn.BCELoss()
   optimizer = torch.optim.Adam(tgn.parameters(), lr=LEARNING_RATE)
   tgn = tgn.to(device)
@@ -289,6 +291,7 @@ for i in range(args.n_runs):
 
     logger.info('epoch: {} took {:.2f}s'.format(epoch, total_epoch_time))
     logger.info('Epoch mean loss: {}'.format(np.mean(m_loss)))
+    logger.info('Average epoch time: {:.2f}s'.format(np.mean(epoch_times)))
     logger.info(
       'val auc: {}'.format(val_auc))
     logger.info(

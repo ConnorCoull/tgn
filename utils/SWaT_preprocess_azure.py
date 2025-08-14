@@ -123,28 +123,61 @@ appi_to_id = {
 
 
 def process(filename, true_label_start=0):
-
     df = pd.read_csv(filename)
     df.drop(df.columns[columns_to_remove], axis=1, inplace=True)
     df.dropna(inplace=True)
 
     # Merge the date an time columns into a ts column that measure seconds (going from 1Jan1970 00:00:00 to 0)
     # Try both date formats
+    # df["date"] = df["date"].str.split().str[0]
+    # df["time"] = df["time"].str.strip()
+    # print(pd.to_datetime(df.at[877, "date"] + " " + df.at[877, "time"], format="mixed").value // 10**9)
+
+        # Extract only proper HH:MM:SS time values — anything else becomes NaN
+
+
+    # df["time_clean"] = df["time"].astype(str).str.extract(r"(\d{2}:\d{2}:\d{2})")[0]
+
+    # Optional sanity check:
+    # invalid_times = df[df["time"].isna()]
+    # if not invalid_times.empty:
+    #     print(f"Invalid times found: {len(invalid_times)}")
+
+    # df["ts"] = (
+    #     pd.to_datetime("28Dec15 " + df["time_clean"], format="%d%b%y %H:%M:%S")
+    #     .view("int64") // 10**9
+    # )
+
     df["ts"] = (
-        pd.to_datetime(df["date"] + " " + df["time"], format="mixed").astype("int64")
-        // 10**9
+        pd.to_datetime(df["date"] + " " + df["time"], format="mixed")
+        .view("int64") // 10**9
     )
 
-        
+    print(df["ts"].unique().tolist()[:10])
+
+    #df.drop("time_clean", axis=1, inplace=True)
+
+    # df["ts"] = (
+    #     pd.to_datetime(
+    #         # 1) only keep the dd-MMM-yy part of date
+    #         df["date"].str.split().str[0] + " "
+    #         # 2) strip any whitespace around time
+    #         + df["time"].str.strip(),
+    #         # 3) explicit format for day-month(abbrev)-year and 24h H:M:S
+    #         format='mixed',
+    #         dayfirst=True,
+    #     ).astype("int64")
+    #     // 10**9
+    # )
 
     df.drop(["date", "time"], axis=1, inplace=True)
 
     # subtract the value of the first timestamp from all timestamps to start at 0
-    df["ts"] -= df["ts"].min()
+    # df["ts"] -= df["ts"].min()
 
-    # If "Modbus_Function_Description" contains " - resposne", the is_response field should be 1
+    # If "Modbus_Function_Description" contains " - Response", the is_response field should be 1
     df["is_response"] = (
-        df["Modbus_Function_Description"].str.contains(" - response").astype(int)
+        df["Modbus_Function_Description"].str.contains(" - Response").astype(int)
     )
     df.drop("Modbus_Function_Description", axis=1, inplace=True)
 
@@ -171,25 +204,6 @@ def process(filename, true_label_start=0):
     df["dst"] = df["dst"].map(ip_to_id)
 
     df["Modbus_Transaction_ID"] = df["Modbus_Transaction_ID"].astype(int)
-
-    last_request_ts = {}
-    response_times = []
-
-    for idx, row in df.iterrows():
-        trans_id = row["Modbus_Transaction_ID"]
-        ts = row["ts"]
-
-        if row["is_response"] == 0:
-            last_request_ts[trans_id] = ts
-            response_times.append(0)  # No response time for request
-        else:
-            if trans_id in last_request_ts:
-                response_time = ts - last_request_ts[trans_id]
-                response_times.append(response_time)
-            else:
-                response_times.append(0)
-
-    df["modbus_response_time"] = response_times
 
     # Convert 'Modbus_Transaction_ID', 'service' and 's_port' to binary strings of length 16
     df["service"] = df["service"].astype(int).apply(lambda x: f"{x:016b}")
@@ -257,7 +271,6 @@ def process(filename, true_label_start=0):
             "dst",
             "ts",
             "is_response",
-            "modbus_response_time",
             "subnet1",
             "subnet2",
             "subnet3",
@@ -337,6 +350,7 @@ def process(filename, true_label_start=0):
         ]
     ]
 
+    df.dropna(inplace=True)
     return df, new_true_label_start
 
 
@@ -352,39 +366,49 @@ def process(filename, true_label_start=0):
 # {'udp', nan, 'tcp'}
 
 folder = "D:\\SWAT\\network"
-folders = [f for f in os.listdir(folder) if os.path.isdir(os.path.join(folder, f))]
-folders.remove("processed")
-folders_done = 0
-files_done = 0
-true_label_start = 0
-
+# folders = [f for f in os.listdir(folder) if os.path.isdir(os.path.join(folder, f))]
+# folders.remove("processed")
+# folders.remove("2015-12-22")
+folders = ["2015-12-28", "2015-12-29", "2015-12-30", "2015-12-31", "2016-1-1", "2016-1-2", "2016-1-3"]
+folders_done = 5
+files_done = 68
+true_label_start = 33760893
+# Need to process 2015-12-28_113021_98.log.part12_sorted.csv and beyond for 28
 # folders.remove('processed')
 print(folders)
 
 for subfolder in folders[folders_done:]:
     print(f"Processing folder: {subfolder}")
-    if subfolder == "2015-12-28":
-        for file in sorted(os.listdir(os.path.join(folder, subfolder)))[files_done:]:
-            if file.endswith(".csv"):
-                print(
-                    f"In case of failure - Files Done: {files_done}, True Label Start: {true_label_start}"
-                )
-                current_time = pd.Timestamp.now()
-                date = file[0:4] + "-" + file[5:7] + "-" + file[8:10]
-                df, true_label_start = process(
-                    os.path.join(folder, subfolder, file), true_label_start
-                )
-                output_file = os.path.join(folder, "processed", f"{date}_processed.csv")
-                with open(output_file, "a") as f:
-                    df.to_csv(output_file, mode="a", header=False, index=False)
-                time_taken = (pd.Timestamp.now() - current_time).total_seconds()
-                print(
-                    f"Processed {file} in {time_taken:.4f} seconds, true_label_start: {true_label_start}"
-                )
-                # I think my bug is caused by not waiting enough for the output file to no longer be in use
-                # I will wait 5 seconds before processing the next file
-                time.sleep(5)
-                files_done += 1
+    for file in sorted(os.listdir(os.path.join(folder, subfolder)))[files_done:]:
+        print(f"Starting: {file}")
+        if file.endswith(".csv"):
+            print(
+                f"In case of failure - Files Done: {files_done}, True Label Start: {true_label_start}"
+            )
+            current_time = pd.Timestamp.now()
+            date = file[0:4] + "-" + file[5:7] + "-" + file[8:10]
+            df, true_label_start = process(
+                os.path.join(folder, subfolder, file), true_label_start
+            )
+
+            base_name = os.path.splitext(file)[0]
+
+            output_file = os.path.join(
+                folder, "processed", "by_file", f"{base_name}_processed.csv"
+            )
+            df.to_csv(output_file, index=False)
+            time_taken = (pd.Timestamp.now() - current_time).total_seconds()
+            print(
+                f"Processed {file} in {time_taken:.4f} seconds, true_label_start: {true_label_start}"
+            )
+            # I think my bug is caused by not waiting enough for the output file to no longer be in use
+            # I will wait 5 seconds before processing the next file
+            print("STATS")
+            print(df.head())
+            print(df.columns.tolist())
+            print("--" * 20)
+
+            files_done += 1
 
     true_label_start = 0
     files_done = 0

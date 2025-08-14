@@ -227,7 +227,8 @@ class Autoencoder(torch.nn.Module):
       torch.nn.Linear(hidden_dim // 2, hidden_dim),
       torch.nn.ReLU(),
       torch.nn.Dropout(p=dropout),
-      torch.nn.Linear(hidden_dim, input_dim)
+      torch.nn.Linear(hidden_dim, input_dim),
+      torch.nn.Sigmoid()
     )
 
   def forward(self, x):
@@ -382,17 +383,17 @@ class VariationalAutoencoder(torch.nn.Module):
 #   return fake_srcs, fake_dsts
 
 def get_negative_edges(sources_batch, destinations_batch, timestamps_batch):
-  np.random.seed(2025)
+  # np.random.seed(2025)
 
   sources = np.array(sources_batch)
   dests   = np.array(destinations_batch)
   times   = np.array(timestamps_batch)
 
-  # 1) Precompute the global list of nodes
+  # list of nodes
   all_nodes = np.unique(np.concatenate((sources, dests)))
   num_nodes = all_nodes.max() + 1
 
-  # 2) For each (src, ts), record the set of forbiddens (i.e. observed dests)
+  # positive edges
   forbidden = defaultdict(set)
   for src, dst, ts in zip(sources, dests, times):
       forbidden[(src, ts)].add(dst)
@@ -400,15 +401,11 @@ def get_negative_edges(sources_batch, destinations_batch, timestamps_batch):
   fake_srcs = []
   fake_dsts = []
 
-  # 3) Now, for *each* original positive edge (in order!), sample a negative
+  # negative edges
   for src, ts in zip(sources, times):
-      # the candidates are all_nodes except src itself and except forbidden[src,ts]
       forb = forbidden[(src, ts)]
-      # note: self‐loop is forbidden too
       forb_with_self = forb | {src}
 
-      # fast way to pick one at random:
-      #   keep drawing until you hit a node not in the forbid set
       while True:
           neg_dst = np.random.randint(0, num_nodes)
           if neg_dst not in forb_with_self:
